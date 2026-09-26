@@ -44,7 +44,7 @@ Procreate/Krita on painting; every feature must serve "import → ink → export
 
 - `src/engine/` — framework-free core. `Engine` owns the image, inks, masks, WebGL renderer, undo history.
   React never touches WebGL directly; it calls Engine methods and subscribes to its change events.
-  - `effects.ts` — ink effect catalog (names, defaults, slider ranges). Add new inks here + in the shader.
+  - `effects.ts` — ink catalog (names, defaults, slider ranges). Add new inks here + a branch in the shader.
   - `shaders.ts` — the single render shader. Effect ids must match `effects.ts`.
   - `lines.ts` — splits art into a "lines" layer and an inpainted "fill" layer (pull-push) so
     "Lines only" inks move linework without smearing colors.
@@ -58,10 +58,12 @@ Procreate/Krita on painting; every feature must serve "import → ink → export
 - Stepped inks (boil, jitter, shake, crumple) change at `fps`; step boundaries align with the loop.
 - Continuous inks (wobble) complete an integer number of cycles per loop.
 
-## Monetization hooks (not built yet)
+## Current focus
 
-Free: 3 inks (Boil, Jitter, Wobble), 720p, watermark. Pro: all inks, HD/4K, no watermark, transparent export.
-Pro-only effect code will be served from the server after license check — keep effects modular.
+- **Everything is free.** No Pro badges, locks, paywalls or pricing copy anywhere in the app until the owner says so.
+- **One ink at a time.** Only Boil exists right now; perfect it before adding the next. Earlier experimental
+  inks (jitter, wobble, shake, crumple) are in git tag `v0.0` for reference.
+- Keep effects modular so future inks (and, later, paid ones) slot in via `effects.ts` + a shader branch.
 
 ## Dev tips
 
@@ -73,7 +75,7 @@ Pro-only effect code will be served from the server after license check — keep
 ## Status (prototype v0.1)
 
 Working: import (file picker, drag & drop, paste; PNG/JPG/WebP; capped at 2048px), sample art,
-5 inks (Boil, Jitter, Wobble, Shake, Crumple) with Strength/Speed/Size/Lines-only, brush + eraser with
+the Boil ink (multiple Boil inks per artwork) with Strength/Speed/Size/Lines-only, brush + eraser with
 pen pressure, soft/hard tip, opacity, undo/redo, Animate all / Invert / Clear, ink overlay that fades
 after painting (H pins it), line-detection slider with preview, loop length, MP4 + GIF export
 (transparent GIF), Procreate gestures, Krita shortcuts, phone bottom-sheet layout.
@@ -85,7 +87,7 @@ after painting (H pins it), line-detection slider with preview, loop length, MP4
 3. Edge-aware inpainting so fills don't blend colors from both sides of a line at high strength.
 4. PSD import (layers → pick the line layer = perfect line detection).
 5. PWA service worker (offline), then Tauri/Capacitor wrappers.
-6. Accounts, license checks, Pro gating, server-delivered Pro inks.
+6. More inks, one at a time, once Boil feels perfect.
 
 ## Releases
 

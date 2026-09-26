@@ -477,18 +477,6 @@ export class Engine {
     this.emit();
   }
 
-  setInkEffect(id: string, effect: EffectId) {
-    const ink = this.inks.find((i) => i.id === id);
-    if (!ink || ink.effect === effect) return;
-    const oldDef = EFFECT_BY_ID[ink.effect];
-    const def = EFFECT_BY_ID[effect];
-    if (ink.name.startsWith(oldDef.name)) ink.name = def.name + ink.name.slice(oldDef.name.length);
-    ink.effect = effect;
-    ink.params = { ...def.defaults };
-    this.dirty = true;
-    this.emit();
-  }
-
   private maskSnapshotCommand(ink: Ink, label: string, apply: (ctx: CanvasRenderingContext2D) => void) {
     const mask = this.masks.get(ink.id);
     if (!mask) return;

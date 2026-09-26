@@ -8,8 +8,8 @@ export function EmptyState({ onImport, onSample }: { onImport: () => void; onSam
       <div className="empty-card">
         <div className="empty-glyphs" aria-hidden="true">
           <EffectGlyph effect="boil" size={56} color="#ffd23f" />
-          <EffectGlyph effect="wobble" size={56} color="#3fd0ff" />
-          <EffectGlyph effect="jitter" size={56} color="#ff5d8f" />
+          <EffectGlyph effect="boil" size={56} color="#3fd0ff" dur="0.3s" />
+          <EffectGlyph effect="boil" size={56} color="#ff5d8f" dur="0.45s" />
         </div>
         <h1>Bring your art to life</h1>
         <p>

@@ -109,11 +109,10 @@ export async function loadSample() {
   await engine.setImage(art.canvas);
   const boil = engine.addInk('boil', false)!;
   engine.fillInk(boil.id);
-  const wobble = engine.addInk('wobble', false)!;
-  engine.updateInk(wobble.id, { params: { strength: 55, size: 30 } });
-  engine.paintCircles(wobble.id, art.stars);
-  const jitter = engine.addInk('jitter', false)!;
-  engine.paintCircles(jitter.id, art.bubble);
+  // A second, livelier boil on the stars shows off per-area control.
+  const stars = engine.addInk('boil', false)!;
+  engine.updateInk(stars.id, { name: 'Boil · stars', params: { strength: 85, speed: 12 } });
+  engine.paintCircles(stars.id, art.stars);
   engine.setActiveInk(boil.id);
   engine.history.clear();
   engine.dirty = false;

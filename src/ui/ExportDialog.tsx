@@ -29,7 +29,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
   const [smooth, setSmooth] = useState(false);
   const [length, setLength] = useState<'loop' | '6' | '15'>('6');
   const [background, setBackground] = useState<Background>('white');
-  const [watermark, setWatermark] = useState(true);
+  const [watermark, setWatermark] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [result, setResult] = useState<ExportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -150,7 +150,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
         )}
 
         <Toggle label="Extra smooth" hint={`${fps} frames per second`} checked={smooth} onChange={setSmooth} />
-        <Toggle label="Zinklet watermark" hint="Removed on the Pro plan" checked={watermark} onChange={setWatermark} />
+        <Toggle label="“made with Zinklet” tag" hint="Optional — helps other artists find the app" checked={watermark} onChange={setWatermark} />
 
         {error && <p className="error-note">{error}</p>}
 
