@@ -1,11 +1,13 @@
 import { useRef } from 'react';
-import { ImagePlus } from 'lucide-react';
+import { Dices, ImagePlus, Lock } from 'lucide-react';
 import { Segmented, Slider, Toggle } from './controls';
-import { useEngine } from './store';
+import { lockDev, setDev, toast, useDev, useEngine } from './store';
 
 export function ArtPanel({ onClose, onReplace }: { onClose: () => void; onReplace: () => void }) {
   const e = useEngine();
+  const dev = useDev();
   const timer = useRef(0);
+  const loopOptions = dev.unlocked ? [0.5, 1, 2, 3, 4, 6, 8] : [1, 2, 3, 4];
   const linesWereShown = useRef(false);
 
   const reanalyze = () => {
@@ -28,7 +30,7 @@ export function ArtPanel({ onClose, onReplace }: { onClose: () => void; onReplac
         <Segmented
           label="Loop length"
           value={e.loopSeconds}
-          options={[1, 2, 3, 4].map((s) => ({ value: s, label: `${s}s` }))}
+          options={loopOptions.map((s) => ({ value: s, label: `${s}s` }))}
           onChange={(s) => e.setLoopSeconds(s)}
         />
         <p className="field-hint">Everything repeats seamlessly over this length. Short loops are great for stickers and emotes.</p>
@@ -62,6 +64,42 @@ export function ArtPanel({ onClose, onReplace }: { onClose: () => void; onReplac
         <button type="button" className="wide-btn" onClick={onReplace}>
           <ImagePlus size={17} /> Replace art (keeps your inks)
         </button>
+
+        {dev.unlocked && (
+          <>
+            <div className="divider" />
+            <div className="dev-head">
+              Dev tools <em className="dev-badge">DEV</em>
+            </div>
+            <Toggle
+              label="Uncapped sliders"
+              hint="Strength, speed and size go way past normal"
+              checked={dev.uncapped}
+              onChange={(v) => setDev({ uncapped: v })}
+            />
+            <Toggle label="Performance stats" hint="Redraws per second and draw time" checked={dev.stats} onChange={(v) => setDev({ stats: v })} />
+            <button
+              type="button"
+              className="wide-btn"
+              onClick={() => {
+                e.rerollSeeds();
+                toast('New randomness for every ink');
+              }}
+            >
+              <Dices size={17} /> Re-roll randomness
+            </button>
+            <button
+              type="button"
+              className="wide-btn"
+              onClick={() => {
+                lockDev();
+                toast('Dev mode locked');
+              }}
+            >
+              <Lock size={17} /> Lock dev mode
+            </button>
+          </>
+        )}
       </div>
     </section>
   );

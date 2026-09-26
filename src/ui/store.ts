@@ -50,6 +50,73 @@ export function useToast(): ToastState | null {
   );
 }
 
+// ------------------------------------------------------------------ dev mode
+// Hidden owner tools: unreleased inks and power settings. The unlock code is stored only as a
+// hash because the repo is public. It's a gimmick, not security.
+
+const DEV_CODE_HASH = 0xd6c9f49b;
+const DEV_KEY = 'zinklet.devMode';
+
+function fnv1a(text: string): number {
+  let h = 0x811c9dc5;
+  for (const byte of new TextEncoder().encode(text)) {
+    h ^= byte;
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h >>> 0;
+}
+
+export interface DevState {
+  unlocked: boolean;
+  /** Let ink sliders go past their normal limits. */
+  uncapped: boolean;
+  /** Show the FPS / draw-time overlay. */
+  stats: boolean;
+}
+
+function loadDevUnlocked(): boolean {
+  try {
+    return localStorage.getItem(DEV_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+let devState: DevState = { unlocked: loadDevUnlocked(), uncapped: false, stats: false };
+const devListeners = new Set<() => void>();
+
+export function setDev(patch: Partial<DevState>) {
+  devState = { ...devState, ...patch };
+  try {
+    if (devState.unlocked) localStorage.setItem(DEV_KEY, '1');
+    else localStorage.removeItem(DEV_KEY);
+  } catch {
+    /* private mode: dev mode just won't be remembered */
+  }
+  devListeners.forEach((fn) => fn());
+}
+
+export function useDev(): DevState {
+  return useSyncExternalStore(
+    (fn) => {
+      devListeners.add(fn);
+      return () => devListeners.delete(fn);
+    },
+    () => devState,
+  );
+}
+
+/** Returns true if the code unlocked dev mode. */
+export function tryUnlockDev(code: string): boolean {
+  if (fnv1a(code.trim().toUpperCase()) !== DEV_CODE_HASH) return false;
+  setDev({ unlocked: true });
+  return true;
+}
+
+export function lockDev() {
+  setDev({ unlocked: false, uncapped: false, stats: false });
+}
+
 // ------------------------------------------------------------------ view commands
 // The canvas view registers these so toolbar buttons and shortcuts can drive zoom.
 

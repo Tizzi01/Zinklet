@@ -138,6 +138,10 @@ export class Engine {
   private needsRender = true;
   private lastKey = '';
   private raf = 0;
+  /** Preview loop stats for the dev overlay: frames drawn per second and CPU time per draw. */
+  readonly stats = { fps: 0, drawMs: 0 };
+  private statFrames = 0;
+  private statSince = performance.now();
 
   constructor() {
     this.canvas = document.createElement('canvas');
@@ -477,6 +481,25 @@ export class Engine {
     this.emit();
   }
 
+  setInkEffect(id: string, effect: EffectId) {
+    const ink = this.inks.find((i) => i.id === id);
+    if (!ink || ink.effect === effect) return;
+    const oldDef = EFFECT_BY_ID[ink.effect];
+    const def = EFFECT_BY_ID[effect];
+    if (ink.name.startsWith(oldDef.name)) ink.name = def.name + ink.name.slice(oldDef.name.length);
+    ink.effect = effect;
+    ink.params = { ...def.defaults };
+    this.dirty = true;
+    this.emit();
+  }
+
+  /** Dev tool: give every ink fresh randomness (a different-looking boil with the same settings). */
+  rerollSeeds() {
+    for (const ink of this.inks) ink.seed = 1 + Math.floor(Math.random() * 9000);
+    this.dirty = true;
+    this.emit();
+  }
+
   private maskSnapshotCommand(ink: Ink, label: string, apply: (ctx: CanvasRenderingContext2D) => void) {
     const mask = this.masks.get(ink.id);
     if (!mask) return;
@@ -807,11 +830,21 @@ export class Engine {
   private loop() {
     this.raf = requestAnimationFrame(this.loop);
     if (!this.hasImage || this.busy || this.contextLost || !this.layers) return;
+    const t0 = performance.now();
     const key = this.renderFrame(
       this.loopTime,
       { maskAlpha: this.maskAlpha, showLines: this.showLines },
       !this.needsRender ? this.lastKey : null,
     );
+    if (key !== this.lastKey || this.needsRender) {
+      this.statFrames++;
+      this.stats.drawMs = performance.now() - t0;
+    }
+    if (t0 - this.statSince >= 1000) {
+      this.stats.fps = Math.round((this.statFrames * 1000) / (t0 - this.statSince));
+      this.statFrames = 0;
+      this.statSince = t0;
+    }
     this.lastKey = key;
     this.needsRender = false;
   }

@@ -1,11 +1,10 @@
 // Catalog of invisible inks. The `shaderId` must match the branches in shaders.ts.
-// We're perfecting one ink at a time; earlier experiments (jitter, wobble, shake, crumple)
-// live in git tag v0.0 if we want to bring them back.
+// Only Boil is public right now; `devOnly` inks appear after unlocking dev mode.
 
-export type EffectId = 'boil';
+export type EffectId = 'boil' | 'jitter' | 'wobble' | 'shake' | 'crumple';
 
 export interface InkParams {
-  /** 0–100: how far lines move. */
+  /** 0–100: how far lines move (or how deep crumple shading goes). */
   strength: number;
   /** Steps per second for stepped inks, cycles per second for continuous inks. */
   speed: number;
@@ -29,6 +28,8 @@ export interface EffectDef {
   speedRange: { min: number; max: number; step: number };
   hasSize: boolean;
   defaults: InkParams;
+  /** Hidden unless dev mode is unlocked (work in progress). */
+  devOnly: boolean;
 }
 
 export const EFFECTS: EffectDef[] = [
@@ -43,6 +44,59 @@ export const EFFECTS: EffectDef[] = [
     speedRange: { min: 2, max: 24, step: 1 },
     hasSize: true,
     defaults: { strength: 45, speed: 8, size: 40, linesOnly: true },
+    devOnly: false,
+  },
+  {
+    id: 'jitter',
+    shaderId: 1,
+    name: 'Jitter',
+    blurb: 'Nervous, scratchy shiver',
+    stepped: true,
+    ampUnits: 3.5,
+    sizeUnits: [1.5, 12],
+    speedRange: { min: 4, max: 30, step: 1 },
+    hasSize: true,
+    defaults: { strength: 45, speed: 15, size: 40, linesOnly: true },
+    devOnly: true,
+  },
+  {
+    id: 'wobble',
+    shaderId: 2,
+    name: 'Wobble',
+    blurb: 'Smooth, jelly-like sway',
+    stepped: false,
+    ampUnits: 14,
+    sizeUnits: [30, 320],
+    speedRange: { min: 0.25, max: 3, step: 0.25 },
+    hasSize: true,
+    defaults: { strength: 40, speed: 1, size: 50, linesOnly: false },
+    devOnly: true,
+  },
+  {
+    id: 'shake',
+    shaderId: 3,
+    name: 'Shake',
+    blurb: 'Rattles the whole area',
+    stepped: true,
+    ampUnits: 10,
+    sizeUnits: [20, 20],
+    speedRange: { min: 2, max: 24, step: 1 },
+    hasSize: false,
+    defaults: { strength: 35, speed: 12, size: 50, linesOnly: false },
+    devOnly: true,
+  },
+  {
+    id: 'crumple',
+    shaderId: 4,
+    name: 'Crumple',
+    blurb: 'Shifting crumpled-paper texture',
+    stepped: true,
+    ampUnits: 2.5,
+    sizeUnits: [18, 170],
+    speedRange: { min: 1, max: 12, step: 1 },
+    hasSize: true,
+    defaults: { strength: 50, speed: 4, size: 62, linesOnly: false },
+    devOnly: true,
   },
 ];
 

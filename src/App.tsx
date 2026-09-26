@@ -5,7 +5,7 @@ import { SideBar, sizeToT, tToSize } from './ui/SideBar';
 import { InksPanel } from './ui/InksPanel';
 import { ArtPanel } from './ui/ArtPanel';
 import { ExportDialog } from './ui/ExportDialog';
-import { DropOverlay, EmptyState, Hint, ShortcutsDialog, Toast, ZoomBadge } from './ui/Overlays';
+import { CodeDialog, DropOverlay, EmptyState, Hint, ShortcutsDialog, StatsOverlay, Toast, ZoomBadge } from './ui/Overlays';
 import { engine, importArtFile, loadSample, toast, useEngine, viewCommands, viewInsets } from './ui/store';
 
 const wide = () => window.innerWidth >= 900;
@@ -16,6 +16,7 @@ export default function App() {
   const [uiHidden, setUiHidden] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [codeOpen, setCodeOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [zoom, setZoom] = useState(1);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -114,10 +115,11 @@ export default function App() {
         return;
       }
       if (mod || ev.altKey) return;
-      if (exportOpen || shortcutsOpen) {
+      if (exportOpen || shortcutsOpen || codeOpen) {
         if (k === 'escape') {
           setExportOpen(false);
           setShortcutsOpen(false);
+          setCodeOpen(false);
         }
         return;
       }
@@ -230,7 +232,7 @@ export default function App() {
     <div className={`app ${uiHidden ? 'ui-hidden' : ''} ${panel ? 'panel-open' : ''}`}>
       <CanvasView onZoom={setZoom} />
 
-      {!e.hasImage && <EmptyState onImport={openImport} onSample={onSample} />}
+      {!e.hasImage && <EmptyState onImport={openImport} onSample={onSample} onCode={() => setCodeOpen(true)} />}
 
       {showUi && (
         <>
@@ -242,11 +244,13 @@ export default function App() {
             onSample={onSample}
             onNew={onNew}
             onShortcuts={() => setShortcutsOpen(true)}
+            onCode={() => setCodeOpen(true)}
           />
           <SideBar />
           {panel === 'inks' && <InksPanel onClose={() => setPanel(null)} />}
           {panel === 'art' && <ArtPanel onClose={() => setPanel(null)} onReplace={openImport} />}
           <ZoomBadge zoom={zoom} />
+          <StatsOverlay />
           <Hint />
         </>
       )}
@@ -260,6 +264,7 @@ export default function App() {
       {e.analyzing && <div className="analyzing">Finding your lines…</div>}
       {exportOpen && <ExportDialog onClose={() => setExportOpen(false)} />}
       {shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
+      {codeOpen && <CodeDialog onClose={() => setCodeOpen(false)} />}
       {dragging && <DropOverlay />}
       <Toast />
 
