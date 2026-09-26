@@ -101,6 +101,7 @@ export function TopBar({
         <IconButton label={e.playing ? 'Pause' : 'Play'} shortcut="P" onClick={() => e.setPlaying(!e.playing)} className="play-btn">
           {e.playing ? <Pause size={20} /> : <Play size={20} />}
         </IconButton>
+        <span className="version-tag">v{__APP_VERSION__} (prototype)</span>
       </div>
 
       <div className="topbar-group right">
