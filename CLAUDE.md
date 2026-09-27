@@ -78,7 +78,9 @@ Procreate/Krita on painting; every feature must serve "import → ink → export
 
 ## Status (prototype v0.1)
 
-Working: import (file picker, drag & drop, paste; PNG/JPG/WebP; capped at 2048px), sample art,
+Working: home screen (canvas presets Match/Square/Portrait/Story/Wide/Custom, fit/fill, background,
+continue-editing card; browser Back/Forward move between home and editor), light/dark theme,
+import (file picker, drag & drop, paste; PNG/JPG/WebP; capped at 2048px), sample art,
 the Boil ink (multiple Boil inks per artwork) with Strength/Speed/Size/Lines-only, brush + eraser with
 pen pressure, soft/hard tip, opacity, undo/redo, Animate all / Invert / Clear, ink overlay that fades
 after painting (H pins it), line-detection slider with preview, loop length, MP4 + GIF export

@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { Engine } from '../engine/Engine';
+import { Engine, MAX_SIDE } from '../engine/Engine';
 import { makeSampleArt } from '../engine/sample';
 
 let instance: Engine | null = null;
@@ -147,39 +147,183 @@ async function decodeImage(file: Blob): Promise<ImageBitmap | HTMLImageElement> 
   }
 }
 
-export async function importArtFile(file: File | Blob) {
+// ------------------------------------------------------------------ small shared stores
+
+/** Tiny external store: `use()` re-renders React components when `set()` is called. */
+function createStore<T>(initial: T) {
+  let value = initial;
+  const listeners = new Set<() => void>();
+  const subscribe = (fn: () => void) => {
+    listeners.add(fn);
+    return () => {
+      listeners.delete(fn);
+    };
+  };
+  return {
+    get: () => value,
+    set: (next: T) => {
+      value = next;
+      listeners.forEach((fn) => fn());
+    },
+    use: () => useSyncExternalStore(subscribe, () => value),
+  };
+}
+
+function readLocal(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeLocal(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* private mode: just won't be remembered */
+  }
+}
+
+// ------------------------------------------------------------------ theme
+
+export type Theme = 'dark' | 'light';
+const THEME_KEY = 'zinklet.theme';
+// index.html sets data-theme before first paint (no flash); read it back here.
+const themeStore = createStore<Theme>(document.documentElement.dataset.theme === 'light' ? 'light' : 'dark');
+
+export const useTheme = themeStore.use;
+
+export function setTheme(theme: Theme) {
+  document.documentElement.dataset.theme = theme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#f4f2ee' : '#16161a');
+  writeLocal(THEME_KEY, theme);
+  themeStore.set(theme);
+}
+
+// ------------------------------------------------------------------ canvas settings (home screen)
+
+export type CanvasPreset = 'match' | 'square' | 'portrait' | 'story' | 'wide' | 'custom';
+
+export const CANVAS_PRESETS: { id: CanvasPreset; label: string; hint: string; w: number; h: number }[] = [
+  { id: 'match', label: 'Match art', hint: 'Same size as your drawing', w: 0, h: 0 },
+  { id: 'square', label: 'Square', hint: '1:1 · posts, emotes', w: 1080, h: 1080 },
+  { id: 'portrait', label: 'Portrait', hint: '4:5 · Instagram feed', w: 1080, h: 1350 },
+  { id: 'story', label: 'Story', hint: '9:16 · TikTok, Reels', w: 1080, h: 1920 },
+  { id: 'wide', label: 'Wide', hint: '16:9 · YouTube, banners', w: 1920, h: 1080 },
+  { id: 'custom', label: 'Custom', hint: 'Your own size', w: 1200, h: 1200 },
+];
+
+export interface CanvasSettings {
+  preset: CanvasPreset;
+  /** Used when preset is 'custom'. */
+  width: number;
+  height: number;
+  /** How the art sits in a canvas of a different shape. */
+  fit: 'fit' | 'fill';
+  background: 'transparent' | 'white' | 'black';
+}
+
+const CANVAS_KEY = 'zinklet.canvas';
+const canvasStore = createStore<CanvasSettings>(
+  (() => {
+    const fallback: CanvasSettings = { preset: 'match', width: 1200, height: 1200, fit: 'fit', background: 'transparent' };
+    try {
+      return { ...fallback, ...JSON.parse(readLocal(CANVAS_KEY) ?? '{}') };
+    } catch {
+      return fallback;
+    }
+  })(),
+);
+
+export const useCanvasSettings = canvasStore.use;
+
+export function setCanvasSettings(patch: Partial<CanvasSettings>) {
+  const next = { ...canvasStore.get(), ...patch };
+  writeLocal(CANVAS_KEY, JSON.stringify(next));
+  canvasStore.set(next);
+}
+
+/** Final canvas size for the current settings and a piece of art, capped to the engine's limit. */
+export function canvasSizeFor(artW: number, artH: number, s = canvasStore.get()) {
+  const preset = CANVAS_PRESETS.find((p) => p.id === s.preset) ?? CANVAS_PRESETS[0];
+  let w = s.preset === 'match' ? artW : s.preset === 'custom' ? s.width : preset.w;
+  let h = s.preset === 'match' ? artH : s.preset === 'custom' ? s.height : preset.h;
+  w = Math.max(16, Math.round(w) || 16);
+  h = Math.max(16, Math.round(h) || 16);
+  const cap = Math.min(1, MAX_SIDE / Math.max(w, h));
+  return { w: Math.round(w * cap), h: Math.round(h * cap), capped: cap < 1 };
+}
+
+/** Place art onto a canvas of the chosen size and background. Returns where the art landed. */
+function composeArt(img: CanvasImageSource & { width: number; height: number }) {
+  const aw = (img as HTMLImageElement).naturalWidth || img.width;
+  const ah = (img as HTMLImageElement).naturalHeight || img.height;
+  const s = canvasStore.get();
+  const { w, h } = canvasSizeFor(aw, ah, s);
+  const scale = s.preset === 'match' ? w / aw : s.fit === 'fit' ? Math.min(w / aw, h / ah) : Math.max(w / aw, h / ah);
+  const dx = (w - aw * scale) / 2;
+  const dy = (h - ah * scale) / 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d')!;
+  if (s.background !== 'transparent') {
+    ctx.fillStyle = s.background === 'white' ? '#ffffff' : '#000000';
+    ctx.fillRect(0, 0, w, h);
+  }
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, dx, dy, aw * scale, ah * scale);
+  return { canvas, scale, dx, dy };
+}
+
+/**
+ * Import a picture. `new` starts a fresh project (from the home screen);
+ * `replace` swaps the art but keeps the current inks (from the editor).
+ * Returns true when art was loaded.
+ */
+export async function importArtFile(file: File | Blob, mode: 'new' | 'replace' = 'new'): Promise<boolean> {
   if (file.type && !file.type.startsWith('image/')) {
     toast("That file isn't an image. Try PNG, JPG or WebP.");
-    return;
+    return false;
   }
   if (file.type === 'image/vnd.adobe.photoshop' || (file as File).name?.toLowerCase().endsWith('.psd')) {
     toast('PSD support is coming. For now, export a PNG from your art app.', 3200);
-    return;
+    return false;
   }
   let img: ImageBitmap | HTMLImageElement;
   try {
     img = await decodeImage(file);
   } catch {
     toast("Couldn't open that image. Try PNG or JPG.", 2600);
-    return;
+    return false;
   }
-  const replacing = engine.hasImage;
-  await engine.setImage(img);
+  const replacing = mode === 'replace' && engine.hasImage;
+  if (!replacing) engine.reset();
+  await engine.setImage(composeArt(img).canvas);
   if (engine.inks.length === 0) engine.addInk('boil', false);
+  engine.dirty = replacing;
   requestAnimationFrame(() => viewCommands.fit());
   toast(replacing ? 'Art replaced — your inks were kept' : 'Art imported');
+  return true;
 }
 
 export async function loadSample() {
   const art = makeSampleArt();
+  const placed = composeArt(art.canvas);
+  const at = (c: { x: number; y: number; r: number }) => ({
+    x: placed.dx + c.x * placed.scale,
+    y: placed.dy + c.y * placed.scale,
+    r: c.r * placed.scale,
+  });
   engine.reset();
-  await engine.setImage(art.canvas);
+  await engine.setImage(placed.canvas);
   const boil = engine.addInk('boil', false)!;
   engine.fillInk(boil.id);
   // A second, livelier boil on the stars shows off per-area control.
   const stars = engine.addInk('boil', false)!;
   engine.updateInk(stars.id, { name: 'Boil · stars', params: { strength: 85, speed: 12 } });
-  engine.paintCircles(stars.id, art.stars);
+  engine.paintCircles(stars.id, art.stars.map(at));
   engine.setActiveInk(boil.id);
   engine.history.clear();
   engine.dirty = false;

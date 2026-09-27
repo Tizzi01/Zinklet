@@ -415,5 +415,6 @@ export function isTyping(ev: KeyboardEvent) {
   const t = ev.target as HTMLElement | null;
   if (!t) return false;
   const tag = t.tagName;
-  return (tag === 'INPUT' && (t as HTMLInputElement).type === 'text') || tag === 'TEXTAREA' || t.isContentEditable;
+  const typing = ['text', 'number', 'search', 'email', 'url'];
+  return (tag === 'INPUT' && typing.includes((t as HTMLInputElement).type)) || tag === 'TEXTAREA' || t.isContentEditable;
 }

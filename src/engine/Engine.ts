@@ -121,6 +121,8 @@ export class Engine {
   loopSeconds = 2;
   /** Set while exporting so the preview loop doesn't draw in between frames. */
   busy = false;
+  /** Set while the editor is off screen (home page) to save battery. */
+  suspended = false;
   dirty = false;
 
   readonly history = new History();
@@ -829,7 +831,7 @@ export class Engine {
 
   private loop() {
     this.raf = requestAnimationFrame(this.loop);
-    if (!this.hasImage || this.busy || this.contextLost || !this.layers) return;
+    if (!this.hasImage || this.busy || this.suspended || this.contextLost || !this.layers) return;
     const t0 = performance.now();
     const key = this.renderFrame(
       this.loopTime,
@@ -925,6 +927,17 @@ export class Engine {
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     return key;
+  }
+
+  /** A still preview of the current frame (no ink overlay), for thumbnails. */
+  snapshot(maxSide = 480): string {
+    if (!this.hasImage || !this.layers || this.contextLost) return '';
+    const s = Math.min(1, maxSide / Math.max(this.width, this.height));
+    const c = make2d(Math.round(this.width * s), Math.round(this.height * s));
+    this.renderFrame(this.loopTime, { maskAlpha: 0, showLines: false });
+    c.getContext('2d')!.drawImage(this.canvas, 0, 0, c.width, c.height);
+    this.needsRender = true;
+    return c.toDataURL('image/png');
   }
 
   /** Ask the preview loop to redraw on the next frame. */

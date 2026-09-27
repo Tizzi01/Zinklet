@@ -12,11 +12,13 @@ import {
   Share,
   SlidersHorizontal,
   Sparkles,
-  FilePlus2,
+  House,
   KeyRound,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import { IconButton } from './controls';
-import { useDev, useEngine } from './store';
+import { setTheme, useDev, useEngine, useTheme } from './store';
 
 export type PanelId = 'inks' | 'art' | null;
 
@@ -26,7 +28,7 @@ export function TopBar({
   onImport,
   onExport,
   onSample,
-  onNew,
+  onHome,
   onShortcuts,
   onCode,
 }: {
@@ -35,12 +37,13 @@ export function TopBar({
   onImport: () => void;
   onExport: () => void;
   onSample: () => void;
-  onNew: () => void;
+  onHome: () => void;
   onShortcuts: () => void;
   onCode: () => void;
 }) {
   const e = useEngine();
   const dev = useDev();
+  const theme = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const active = e.activeInk;
@@ -69,14 +72,17 @@ export function TopBar({
           </button>
           {menuOpen && (
             <div className="menu" role="menu" onClick={() => setMenuOpen(false)}>
+              <button role="menuitem" onClick={onHome}>
+                <House size={17} /> Home
+              </button>
               <button role="menuitem" onClick={onImport}>
-                <ImagePlus size={17} /> Import art… <kbd>Ctrl O</kbd>
+                <ImagePlus size={17} /> Replace art… <kbd>Ctrl O</kbd>
               </button>
               <button role="menuitem" onClick={onSample}>
                 <Sparkles size={17} /> Load sample art
               </button>
-              <button role="menuitem" onClick={onNew}>
-                <FilePlus2 size={17} /> New project
+              <button role="menuitem" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+                {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />} {theme === 'dark' ? 'Light mode' : 'Dark mode'}
               </button>
               <hr />
               <button role="menuitem" onClick={onShortcuts}>
@@ -92,7 +98,7 @@ export function TopBar({
         <IconButton label="Artwork settings" active={panel === 'art'} onClick={() => toggle('art')}>
           <SlidersHorizontal size={20} />
         </IconButton>
-        <IconButton label="Import art" shortcut="Ctrl+O" onClick={onImport}>
+        <IconButton label="Replace art" shortcut="Ctrl+O" onClick={onImport}>
           <ImagePlus size={20} />
         </IconButton>
       </div>

@@ -5,10 +5,13 @@ import { SideBar, sizeToT, tToSize } from './ui/SideBar';
 import { InksPanel } from './ui/InksPanel';
 import { ArtPanel } from './ui/ArtPanel';
 import { ExportDialog } from './ui/ExportDialog';
-import { CodeDialog, DropOverlay, EmptyState, Hint, ShortcutsDialog, StatsOverlay, Toast, ZoomBadge } from './ui/Overlays';
+import { CodeDialog, DropOverlay, Hint, ShortcutsDialog, StatsOverlay, Toast, ZoomBadge } from './ui/Overlays';
+import { HomeScreen } from './ui/HomeScreen';
 import { engine, importArtFile, loadSample, toast, useEngine, viewCommands, viewInsets } from './ui/store';
 
 const wide = () => window.innerWidth >= 900;
+
+type Screen = 'home' | 'editor';
 
 export default function App() {
   const e = useEngine();
@@ -19,32 +22,80 @@ export default function App() {
   const [codeOpen, setCodeOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [screen, setScreen] = useState<Screen>('home');
+  const [thumb, setThumb] = useState('');
   const fileInput = useRef<HTMLInputElement>(null);
+  const screenRef = useRef<Screen>('home');
+  screenRef.current = screen;
 
-  const openImport = useCallback(() => fileInput.current?.click(), []);
+  // ------------------------------------------------------------------ screens & browser history
+  // Home and editor are separate history entries, so the browser back button returns home
+  // (the project stays open) and forward goes back into the editor.
 
-  const afterLoad = () => {
+  useEffect(() => {
+    history.replaceState({ screen: 'home' }, '', location.pathname + location.search);
+    const onPop = (ev: PopStateEvent) => {
+      const wanted = (ev.state as { screen?: Screen } | null)?.screen;
+      setScreen(wanted === 'editor' && engine.hasImage ? 'editor' : 'home');
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  const goEditor = () => {
+    if (screenRef.current === 'editor') return;
+    history.pushState({ screen: 'editor' }, '', '#editor');
+    setScreen('editor');
     setUiHidden(false);
     if (wide()) setPanel('inks');
   };
 
-  const onSample = async () => {
-    if (engine.hasImage && engine.dirty && !window.confirm('Load the sample art? Your current project will be replaced.')) return;
-    await loadSample();
-    afterLoad();
-    toast('Sample loaded — it’s already alive. Try painting more ink!', 2600);
+  const goHome = () => {
+    if ((history.state as { screen?: Screen } | null)?.screen === 'editor') history.back();
+    else setScreen('home');
   };
 
-  const onNew = () => {
-    if (engine.dirty && !window.confirm('Start a new project? Your current inks will be cleared.')) return;
-    engine.reset();
-    setPanel(null);
+  // Pause the preview while the editor is hidden, and grab a thumbnail for "Continue editing".
+  useEffect(() => {
+    if (screen === 'home') {
+      if (engine.hasImage) setThumb(engine.snapshot());
+      engine.suspended = true;
+      setPanel(null);
+    } else {
+      engine.suspended = false;
+      engine.invalidate();
+    }
+  }, [screen]);
+
+  // Nothing to edit (e.g. after a reset): show home.
+  useEffect(() => {
+    if (screen === 'editor' && !e.hasImage) goHome();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen, e.hasImage]);
+
+  // ------------------------------------------------------------------ project actions
+
+  /** The file picker imports a new project from home, or replaces the art in the editor. */
+  const openImport = useCallback(() => fileInput.current?.click(), []);
+
+  const confirmReplaceProject = () =>
+    !engine.hasImage || !engine.dirty || window.confirm('Start a new project? Your current one will be replaced.');
+
+  const onSample = async () => {
+    if (!confirmReplaceProject()) return;
+    await loadSample();
+    goEditor();
+    toast('Sample loaded — it’s already alive. Try painting more ink!', 2600);
   };
 
   const onFile = async (file: File | null | undefined) => {
     if (!file) return;
-    await importArtFile(file);
-    if (engine.hasImage) afterLoad();
+    if (screenRef.current === 'home') {
+      if (!confirmReplaceProject()) return;
+      if (await importArtFile(file, 'new')) goEditor();
+    } else {
+      await importArtFile(file, 'replace');
+    }
   };
 
   const onExport = () => {
@@ -71,6 +122,15 @@ export default function App() {
       if (isTyping(ev)) return;
       const mod = ev.ctrlKey || ev.metaKey;
       const k = ev.key.toLowerCase();
+
+      if (screenRef.current === 'home') {
+        if (mod && k === 'o') {
+          ev.preventDefault();
+          openImport();
+        }
+        if (k === 'escape') setCodeOpen(false);
+        return;
+      }
 
       if (mod && k === 'z') {
         ev.preventDefault();
@@ -226,13 +286,22 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const showUi = e.hasImage && !uiHidden;
+  const showUi = screen === 'editor' && e.hasImage && !uiHidden;
 
   return (
     <div className={`app ${uiHidden ? 'ui-hidden' : ''} ${panel ? 'panel-open' : ''}`}>
       <CanvasView onZoom={setZoom} />
 
-      {!e.hasImage && <EmptyState onImport={openImport} onSample={onSample} onCode={() => setCodeOpen(true)} />}
+      {screen === 'home' && (
+        <HomeScreen
+          thumb={thumb}
+          dragging={dragging}
+          onImport={openImport}
+          onSample={onSample}
+          onContinue={goEditor}
+          onCode={() => setCodeOpen(true)}
+        />
+      )}
 
       {showUi && (
         <>
@@ -242,7 +311,7 @@ export default function App() {
             onImport={openImport}
             onExport={onExport}
             onSample={onSample}
-            onNew={onNew}
+            onHome={goHome}
             onShortcuts={() => setShortcutsOpen(true)}
             onCode={() => setCodeOpen(true)}
           />
@@ -255,7 +324,7 @@ export default function App() {
         </>
       )}
 
-      {uiHidden && e.hasImage && (
+      {uiHidden && screen === 'editor' && e.hasImage && (
         <button type="button" className="show-ui-btn" onClick={() => setUiHidden(false)}>
           Show interface (Tab)
         </button>
@@ -265,7 +334,7 @@ export default function App() {
       {exportOpen && <ExportDialog onClose={() => setExportOpen(false)} />}
       {shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
       {codeOpen && <CodeDialog onClose={() => setCodeOpen(false)} />}
-      {dragging && <DropOverlay />}
+      {dragging && screen === 'editor' && <DropOverlay />}
       <Toast />
 
       <input

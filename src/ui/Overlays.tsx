@@ -1,38 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { ImagePlus, Sparkles, X } from 'lucide-react';
-import { EffectGlyph } from './EffectGlyph';
 import { engine, toast, tryUnlockDev, useDev, useEngine, useToast, viewCommands } from './store';
-
-export function EmptyState({ onImport, onSample, onCode }: { onImport: () => void; onSample: () => void; onCode: () => void }) {
-  return (
-    <div className="empty-state">
-      <div className="empty-card">
-        <div className="empty-glyphs" aria-hidden="true">
-          <EffectGlyph effect="boil" size={56} color="#ffd23f" />
-          <EffectGlyph effect="boil" size={56} color="#3fd0ff" dur="0.3s" />
-          <EffectGlyph effect="boil" size={56} color="#ff5d8f" dur="0.45s" />
-        </div>
-        <h1>Bring your art to life</h1>
-        <p>
-          Import a finished drawing, then brush <b>invisible ink</b> over the parts you want to move.
-          Export a looping video or GIF in seconds.
-        </p>
-        <div className="empty-actions">
-          <button type="button" className="primary-btn" onClick={onImport}>
-            <ImagePlus size={18} /> Import your art
-          </button>
-          <button type="button" className="secondary-btn" onClick={onSample}>
-            <Sparkles size={18} /> Try sample art
-          </button>
-        </div>
-        <small className="muted">PNG, JPG or WebP · drag & drop or paste works too</small>
-        <button type="button" className="link-btn" onClick={onCode}>
-          Have a code?
-        </button>
-      </div>
-    </div>
-  );
-}
 
 export function Hint() {
   const e = useEngine();
