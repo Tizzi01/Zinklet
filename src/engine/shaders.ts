@@ -1,7 +1,7 @@
 // Single-pass renderer. All textures hold premultiplied RGBA; output is premultiplied.
 // Effect branches (uType) must match `shaderId` in effects.ts.
 
-export const MAX_SLOTS = 8;
+export const MAX_SLOTS = 16;
 
 export const VERT = /* glsl */ `#version 300 es
 in vec2 aPos;

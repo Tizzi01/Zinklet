@@ -1,7 +1,8 @@
 import { useRef } from 'react';
 import { Dices, ImagePlus } from 'lucide-react';
 import { Segmented, Slider, Toggle } from './controls';
-import { setAdvanced, toast, useAdvanced, useEngine } from './store';
+import { OVERLAY_COLORS } from '../engine/effects';
+import { setAdvanced, setInkColor, toast, useAdvanced, useEngine } from './store';
 
 export function ArtPanel({ onClose, onReplace }: { onClose: () => void; onReplace: () => void }) {
   const e = useEngine();
@@ -34,6 +35,26 @@ export function ArtPanel({ onClose, onReplace }: { onClose: () => void; onReplac
           onChange={(s) => e.setLoopSeconds(s)}
         />
         <p className="field-hint">Everything repeats seamlessly over this length. Short loops are great for stickers and emotes.</p>
+
+        <div className="divider" />
+
+        <div className="field-label">Ink color</div>
+        <div className="ink-colors" role="radiogroup" aria-label="Ink color">
+          {OVERLAY_COLORS.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              role="radio"
+              aria-checked={e.overlayColor === c.hex}
+              className={`ink-color ${e.overlayColor === c.hex ? 'on' : ''}`}
+              style={{ background: c.hex }}
+              title={c.label}
+              aria-label={c.label}
+              onClick={() => setInkColor(c.id)}
+            />
+          ))}
+        </div>
+        <p className="field-hint">The color the invisible ink shows while you paint. Pick one that stands out on your art.</p>
 
         <div className="divider" />
 

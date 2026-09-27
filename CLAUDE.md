@@ -52,6 +52,15 @@ Procreate/Krita on painting; every feature must serve "import → ink → export
   - `export.ts` — GIF/MP4 export.
 - `src/ui/` — React components. `store.ts` bridges Engine events into React.
 
+## Ink model (important)
+
+- The **brush** (`engine.inkBrush`: effect + strength/speed/size/lines-only) only affects what you paint next.
+- Painted strokes go into an **ink group** (`Ink`) whose effect + settings match the brush exactly; if none
+  matches, a new group is created. Changing the brush never changes ink already on the art.
+- The Inks panel's **"On your art"** list shows the groups. Selecting one highlights it and edits only it.
+- The eraser removes ink from every visible group. Up to 16 groups per artwork (`MAX_INKS` = `MAX_SLOTS`).
+- The ink overlay uses one color for all groups (`engine.overlayColor`, default orange, set in Artwork panel).
+
 ## Animation timing rules
 
 - Everything loops over the project loop length `loopSeconds` so preview == export and loops are seamless.

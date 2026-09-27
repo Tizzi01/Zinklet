@@ -5,9 +5,10 @@ import { SideBar, sizeToT, tToSize } from './ui/SideBar';
 import { InksPanel } from './ui/InksPanel';
 import { ArtPanel } from './ui/ArtPanel';
 import { ExportDialog } from './ui/ExportDialog';
-import { DropOverlay, Hint, ShortcutsDialog, StatsOverlay, Toast, ZoomBadge } from './ui/Overlays';
+import { BrushSizePreview, DropOverlay, Hint, ShortcutsDialog, StatsOverlay, Toast, ZoomBadge } from './ui/Overlays';
 import { HomeScreen } from './ui/HomeScreen';
-import { engine, importArtFile, loadSample, toast, useEngine, viewCommands, viewInsets } from './ui/store';
+import { engine, importArtFile, loadSample, setBrushPreview, toast, useEngine, viewCommands, viewInsets } from './ui/store';
+import { EFFECTS } from './engine/effects';
 
 const wide = () => window.innerWidth >= 900;
 
@@ -123,7 +124,7 @@ export default function App() {
       const k = ev.key.toLowerCase();
 
       if (screenRef.current === 'home') {
-        if (mod && k === 'o') {
+        if (mod && (k === 'o' || k === 'i')) {
           ev.preventDefault();
           openImport();
         }
@@ -142,7 +143,7 @@ export default function App() {
         if (c) toast(`Redo · ${c.label}`);
         return;
       }
-      if (mod && k === 'o') {
+      if (mod && (k === 'o' || k === 'i')) {
         ev.preventDefault();
         openImport();
         return;
@@ -190,9 +191,11 @@ export default function App() {
           break;
         case '[':
           engine.setBrush({ size: tToSize(Math.max(0, sizeToT(engine.brush.size) - 0.04)) });
+          setBrushPreview(true, 700);
           break;
         case ']':
           engine.setBrush({ size: tToSize(Math.min(1, sizeToT(engine.brush.size) + 0.04)) });
+          setBrushPreview(true, 700);
           break;
         case 'p':
           engine.setPlaying(!engine.playing);
@@ -214,11 +217,12 @@ export default function App() {
           setPanel(null);
           break;
         default:
-          if (/^[1-8]$/.test(k)) {
-            const ink = engine.inks[Number(k) - 1];
-            if (ink) {
-              engine.setActiveInk(ink.id);
-              toast(`Ink: ${ink.name}`, 1000);
+          if (/^[1-9]$/.test(k)) {
+            const fx = EFFECTS[Number(k) - 1];
+            if (fx) {
+              engine.setInkBrush({ effect: fx.id });
+              engine.setTool('brush');
+              toast(`Brush: ${fx.name}`, 1000);
             }
           }
       }
@@ -315,6 +319,7 @@ export default function App() {
           {panel === 'art' && <ArtPanel onClose={() => setPanel(null)} onReplace={openImport} />}
           <ZoomBadge zoom={zoom} />
           <StatsOverlay />
+          <BrushSizePreview zoom={zoom} />
           <Hint />
         </>
       )}

@@ -52,9 +52,10 @@ export function VSlider({
         if (e.key === 'ArrowDown') onChange(Math.max(0, t - 0.02));
       }}
     >
-      <div className="vslider-fill" style={{ height: `${t * 100}%` }} />
-      <div className="vslider-thumb" style={{ bottom: `calc(${t * 100}% - 6px)` }} />
-      {active && <div className="vslider-bubble">{display}</div>}
+      <div className="vslider-track">
+        <div className="vslider-fill" style={{ height: `${t * 100}%` }} />
+      </div>
+      <div className="vslider-thumb" style={{ bottom: `calc(${t} * (100% - 22px))` }} />
     </div>
   );
 }

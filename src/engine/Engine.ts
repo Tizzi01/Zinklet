@@ -1,16 +1,20 @@
-import { EFFECT_BY_ID, INK_COLORS, MAX_INKS, type EffectId, type InkParams } from './effects';
+import { EFFECTS, EFFECT_BY_ID, MAX_INKS, type EffectId, type InkParams } from './effects';
 import { FRAG, MAX_SLOTS, VERT } from './shaders';
 import { decompose } from './lines';
 import { History, type Command } from './history';
 
 export type Tool = 'brush' | 'eraser';
 
+/**
+ * A group of painted strokes that share one effect + settings. Painting with the brush adds to the
+ * group whose settings match exactly, or starts a new group — so changing the brush never changes
+ * ink that's already on the art. Selecting a group lets you edit just that ink.
+ */
 export interface Ink {
   id: string;
   slot: number;
   effect: EffectId;
   name: string;
-  color: string;
   params: InkParams;
   visible: boolean;
   seed: number;
@@ -44,9 +48,16 @@ interface Rect {
   h: number;
 }
 
-interface StrokeState {
+interface StrokeTarget {
   ink: Ink;
   mask: HTMLCanvasElement;
+  /** Created for this stroke (undo removes it again). */
+  created: boolean;
+}
+
+interface StrokeState {
+  /** One ink when painting; every visible ink when erasing. */
+  targets: StrokeTarget[];
   eraser: boolean;
   opacity: number;
   last: { x: number; y: number; r: number };
@@ -108,7 +119,13 @@ export class Engine {
   private layers: { src: Uint8Array; lines: Uint8Array; fill: Uint8Array } | null = null;
 
   inks: Ink[] = [];
-  activeInkId: string | null = null;
+  /** Ink group picked in the "On your art" list for editing (null = none). */
+  selectedInkId: string | null = null;
+  /** What the brush paints next. Remembered per effect so switching back restores your settings. */
+  inkBrush: { effect: EffectId; params: InkParams } = { effect: 'boil', params: { ...EFFECT_BY_ID.boil.defaults } };
+  private brushParams = Object.fromEntries(EFFECTS.map((e) => [e.id, { ...e.defaults }])) as Record<EffectId, InkParams>;
+  /** Color of the ink overlay shown while painting. */
+  overlayColor = '#ff8a3d';
   private masks = new Map<string, HTMLCanvasElement>();
 
   tool: Tool = 'brush';
@@ -377,7 +394,7 @@ export class Engine {
     this.layers = null;
     this.inks = [];
     this.masks.clear();
-    this.activeInkId = null;
+    this.selectedInkId = null;
     this.history.clear();
     this.dirty = false;
     this.emit();
@@ -385,8 +402,8 @@ export class Engine {
 
   // ---------------------------------------------------------------- inks
 
-  get activeInk(): Ink | null {
-    return this.inks.find((i) => i.id === this.activeInkId) ?? null;
+  get selectedInk(): Ink | null {
+    return this.inks.find((i) => i.id === this.selectedInkId) ?? null;
   }
 
   get canAddInk() {
@@ -397,79 +414,98 @@ export class Engine {
     return this.inks.some((i) => i.painted);
   }
 
-  addInk(effect: EffectId, record = true): Ink | null {
+  /** Change the brush (affects only what you paint next). */
+  setInkBrush(patch: { effect?: EffectId; params?: Partial<InkParams> }) {
+    const effect = patch.effect ?? this.inkBrush.effect;
+    const params = { ...this.brushParams[effect], ...(patch.params ?? {}) };
+    this.brushParams[effect] = params;
+    this.inkBrush = { effect, params: { ...params } };
+    this.emit();
+  }
+
+  /** Copy a painted ink's effect + settings onto the brush. */
+  useInkAsBrush(id: string) {
+    const ink = this.inks.find((i) => i.id === id);
+    if (ink) this.setInkBrush({ effect: ink.effect, params: ink.params });
+  }
+
+  private sameSettings(a: InkParams, b: InkParams) {
+    return a.strength === b.strength && a.speed === b.speed && a.size === b.size && a.linesOnly === b.linesOnly;
+  }
+
+  /** The ink group matching the brush exactly, if one exists. */
+  private findBrushInk(): Ink | null {
+    const { effect, params } = this.inkBrush;
+    return this.inks.find((i) => i.effect === effect && this.sameSettings(i.params, params)) ?? null;
+  }
+
+  private attachInk(ink: Ink) {
+    if (!this.inks.includes(ink)) this.inks.push(ink);
+    this.uploadMask(ink, null);
+  }
+
+  private detachInk(ink: Ink) {
+    this.inks = this.inks.filter((i) => i !== ink);
+    if (this.selectedInkId === ink.id) this.selectedInkId = null;
+  }
+
+  /** Make a new, empty ink group. No undo entry (callers record their own). */
+  private createInk(effect: EffectId, params: InkParams): Ink | null {
     if (!this.canAddInk || !this.hasImage) return null;
     const used = new Set(this.inks.map((i) => i.slot));
     let slot = 0;
     while (used.has(slot)) slot++;
     const def = EFFECT_BY_ID[effect];
-    const sameCount = this.inks.filter((i) => i.effect === effect).length;
+    const names = new Set(this.inks.map((i) => i.name));
+    let n = 1;
+    while (names.has(n === 1 ? def.name : `${def.name} ${n}`)) n++;
     const ink: Ink = {
       id: newId(),
       slot,
       effect,
-      name: sameCount ? `${def.name} ${sameCount + 1}` : def.name,
-      color: INK_COLORS[slot % INK_COLORS.length],
-      params: { ...def.defaults },
+      name: n === 1 ? def.name : `${def.name} ${n}`,
+      params: { ...params },
       visible: true,
       seed: 1 + Math.floor(Math.random() * 9000),
       painted: false,
     };
-    const mask = make2d(this.maskW, this.maskH);
-    this.masks.set(ink.id, mask);
-    const prevActive = this.activeInkId;
-    const attach = () => {
-      this.inks.push(ink);
-      this.inks.sort((a, b) => a.slot - b.slot);
-      this.activeInkId = ink.id;
-      this.uploadMask(ink, null);
-    };
-    attach();
-    if (record) {
-      this.history.push({
-        label: `Add ${ink.name}`,
-        undo: () => {
-          this.inks = this.inks.filter((i) => i !== ink);
-          this.activeInkId = prevActive;
-        },
-        redo: attach,
-      });
+    this.masks.set(ink.id, make2d(this.maskW, this.maskH));
+    this.attachInk(ink);
+    return ink;
+  }
+
+  /** Programmatic ink creation (sample art). Not undoable. */
+  addInk(effect: EffectId, params: Partial<InkParams> = {}): Ink | null {
+    const ink = this.createInk(effect, { ...EFFECT_BY_ID[effect].defaults, ...params });
+    if (ink) {
+      this.dirty = true;
+      this.emit();
     }
-    this.dirty = true;
-    this.emit();
     return ink;
   }
 
   removeInk(id: string) {
     const ink = this.inks.find((i) => i.id === id);
     if (!ink) return;
-    const idx = this.inks.indexOf(ink);
-    const detach = () => {
-      this.inks = this.inks.filter((i) => i !== ink);
-      if (this.activeInkId === ink.id) {
-        this.activeInkId = this.inks[Math.min(idx, this.inks.length - 1)]?.id ?? null;
-      }
-    };
-    detach();
+    const index = this.inks.indexOf(ink);
+    this.detachInk(ink);
     this.history.push({
       label: `Delete ${ink.name}`,
       undo: () => {
-        // The slot may have been reused meanwhile only via commands that were undone first,
-        // so it is free again here.
-        this.inks.push(ink);
-        this.inks.sort((a, b) => a.slot - b.slot);
-        this.activeInkId = ink.id;
+        // Any command that reused this slot was undone first, so the slot is free again.
+        this.inks.splice(Math.min(index, this.inks.length), 0, ink);
         this.uploadMask(ink, null);
       },
-      redo: detach,
+      redo: () => this.detachInk(ink),
     });
     this.dirty = true;
     this.emit();
   }
 
-  setActiveInk(id: string) {
-    this.activeInkId = id;
-    this.flashMask(900);
+  /** Select a painted ink to edit it (null to deselect). Briefly highlights it on the art. */
+  selectInk(id: string | null) {
+    this.selectedInkId = id;
+    if (id) this.flashMask(1200);
     this.emit();
   }
 
@@ -502,6 +538,12 @@ export class Engine {
     this.emit();
   }
 
+  setOverlayColor(color: string) {
+    this.overlayColor = color;
+    this.flashMask(1200);
+    this.emit();
+  }
+
   private maskSnapshotCommand(ink: Ink, label: string, apply: (ctx: CanvasRenderingContext2D) => void) {
     const mask = this.masks.get(ink.id);
     if (!mask) return;
@@ -520,16 +562,38 @@ export class Engine {
     this.emit();
   }
 
-  /** "Animate all": cover the whole artwork with this ink. */
-  fillInk(id: string) {
-    const ink = this.inks.find((i) => i.id === id);
-    if (!ink) return;
+  /** "Animate everything": cover the whole artwork with the current brush. */
+  fillWithBrush() {
+    let ink = this.findBrushInk();
+    const created = !ink;
+    if (!ink) ink = this.createInk(this.inkBrush.effect, this.inkBrush.params);
+    if (!ink) return false;
+    const mask = this.masks.get(ink.id)!;
+    const cx = ctx2d(mask);
+    const before = cx.getImageData(0, 0, mask.width, mask.height);
+    cx.globalCompositeOperation = 'source-over';
+    cx.fillStyle = '#fff';
+    cx.fillRect(0, 0, this.maskW, this.maskH);
+    const after = cx.getImageData(0, 0, mask.width, mask.height);
     ink.painted = true;
-    this.maskSnapshotCommand(ink, `Fill ${ink.name}`, (cx) => {
-      cx.globalCompositeOperation = 'source-over';
-      cx.fillStyle = '#fff';
-      cx.fillRect(0, 0, this.maskW, this.maskH);
+    this.uploadMask(ink, null);
+    this.flashMask();
+    const target = ink;
+    this.history.push({
+      label: `Animate everything (${target.name})`,
+      undo: () => {
+        ctx2d(mask).putImageData(before, 0, 0);
+        if (created) this.detachInk(target);
+        else if (this.inks.includes(target)) this.uploadMask(target, null);
+      },
+      redo: () => {
+        ctx2d(mask).putImageData(after, 0, 0);
+        this.attachInk(target);
+      },
     });
+    this.dirty = true;
+    this.emit();
+    return true;
   }
 
   clearInk(id: string) {
@@ -654,21 +718,32 @@ export class Engine {
     return Math.max(0.75, (this.brush.size / 2) * f * this.maskScale);
   }
 
-  /** Returns false when there is nothing to paint on (no image / no active ink). */
-  beginStroke(x: number, y: number, pressure: number, isPen: boolean): boolean {
-    const ink = this.activeInk;
-    const mask = ink && this.masks.get(ink.id);
-    if (!ink || !mask || !this.hasImage) return false;
-    if (!ink.visible) {
+  /**
+   * Start painting. The brush adds to the ink group matching its settings (creating one if
+   * needed); the eraser removes ink from every visible group.
+   * Returns 'ok', 'nothing' (nothing to erase / no art) or 'full' (too many different inks).
+   */
+  beginStroke(x: number, y: number, pressure: number, isPen: boolean): 'ok' | 'nothing' | 'full' {
+    if (!this.hasImage) return 'nothing';
+    const eraser = this.tool === 'eraser';
+    let targets: StrokeTarget[];
+    if (eraser) {
+      targets = this.inks.filter((i) => i.visible).map((ink) => ({ ink, mask: this.masks.get(ink.id)!, created: false }));
+      if (!targets.length) return 'nothing';
+    } else {
+      let ink = this.findBrushInk();
+      const created = !ink;
+      if (!ink) ink = this.createInk(this.inkBrush.effect, this.inkBrush.params);
+      if (!ink) return 'full';
       ink.visible = true;
+      targets = [{ ink, mask: this.masks.get(ink.id)!, created }];
     }
     this.ensureTip(this.brush.hard);
     const s = this.maskScale;
     const r = this.radiusFor(pressure, isPen);
     this.stroke = {
-      ink,
-      mask,
-      eraser: this.tool === 'eraser',
+      targets,
+      eraser,
       opacity: this.brush.opacity / 100,
       last: { x: x * s, y: y * s, r },
       carry: 0,
@@ -677,7 +752,7 @@ export class Engine {
     };
     this.stamp(x * s, y * s, r);
     this.flushStroke();
-    return true;
+    return 'ok';
   }
 
   strokeTo(x: number, y: number, pressure: number, isPen: boolean) {
@@ -733,10 +808,10 @@ export class Engine {
     st.pending = null;
     if (!r) return;
     st.bbox = unionRect(st.bbox, r);
-    this.uploadMask(st.ink, r, this.composeStroke(st, r));
+    for (const t of st.targets) this.uploadMask(t.ink, r, this.composeStroke(st, t.mask, r));
   }
 
-  private composeStroke(st: StrokeState, r: Rect): ImageData {
+  private composeStroke(st: StrokeState, mask: HTMLCanvasElement, r: Rect): ImageData {
     if (this.scratch.width < r.w || this.scratch.height < r.h) {
       this.scratch = make2d(Math.max(r.w, this.scratch.width), Math.max(r.h, this.scratch.height));
     }
@@ -744,7 +819,7 @@ export class Engine {
     sx.globalCompositeOperation = 'source-over';
     sx.globalAlpha = 1;
     sx.clearRect(0, 0, r.w, r.h);
-    sx.drawImage(st.mask, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
+    sx.drawImage(mask, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
     sx.globalCompositeOperation = st.eraser ? 'destination-out' : 'source-over';
     sx.globalAlpha = st.opacity;
     sx.drawImage(this.strokeCanvas, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
@@ -759,27 +834,39 @@ export class Engine {
     this.flushStroke();
     this.stroke = null;
     const r = st.bbox;
-    if (!r) return;
-    const mctx = ctx2d(st.mask);
-    const before = mctx.getImageData(r.x, r.y, r.w, r.h);
-    mctx.save();
-    mctx.globalAlpha = st.opacity;
-    mctx.globalCompositeOperation = st.eraser ? 'destination-out' : 'source-over';
-    mctx.drawImage(this.strokeCanvas, r.x, r.y, r.w, r.h, r.x, r.y, r.w, r.h);
-    mctx.restore();
-    const after = mctx.getImageData(r.x, r.y, r.w, r.h);
+    if (!r) {
+      for (const t of st.targets) if (t.created) this.detachInk(t.ink);
+      return;
+    }
+    const changes = st.targets.map((t) => {
+      const mctx = ctx2d(t.mask);
+      const before = mctx.getImageData(r.x, r.y, r.w, r.h);
+      mctx.save();
+      mctx.globalAlpha = st.opacity;
+      mctx.globalCompositeOperation = st.eraser ? 'destination-out' : 'source-over';
+      mctx.drawImage(this.strokeCanvas, r.x, r.y, r.w, r.h, r.x, r.y, r.w, r.h);
+      mctx.restore();
+      return { ...t, before, after: mctx.getImageData(r.x, r.y, r.w, r.h) };
+    });
     this.strokeCanvas.getContext('2d')!.clearRect(r.x, r.y, r.w, r.h);
-    const ink = st.ink;
-    if (!st.eraser) ink.painted = true;
+    if (!st.eraser) for (const t of st.targets) t.ink.painted = true;
     this.flashMask(1100);
-    const restore = (img: ImageData) => () => {
-      ctx2d(st.mask).putImageData(img, r.x, r.y);
-      if (this.inks.includes(ink)) this.uploadMask(ink, r);
-    };
     this.history.push({
-      label: st.eraser ? 'Erase' : `Paint ${ink.name}`,
-      undo: restore(before),
-      redo: restore(after),
+      label: st.eraser ? 'Erase' : `Paint ${st.targets[0].ink.name}`,
+      undo: () => {
+        for (const c of changes) {
+          ctx2d(c.mask).putImageData(c.before, r.x, r.y);
+          if (c.created) this.detachInk(c.ink);
+          else if (this.inks.includes(c.ink)) this.uploadMask(c.ink, r);
+        }
+      },
+      redo: () => {
+        for (const c of changes) {
+          ctx2d(c.mask).putImageData(c.after, r.x, r.y);
+          if (c.created) this.attachInk(c.ink);
+          else if (this.inks.includes(c.ink)) this.uploadMask(c.ink, r);
+        }
+      },
     });
     this.dirty = true;
     this.emit();
@@ -791,9 +878,10 @@ export class Engine {
     if (!st) return;
     this.stroke = null;
     const r = st.bbox ?? (st.pending && this.clampRect(st.pending));
-    if (r) {
-      this.strokeCanvas.getContext('2d')!.clearRect(r.x, r.y, r.w, r.h);
-      this.uploadMask(st.ink, r);
+    if (r) this.strokeCanvas.getContext('2d')!.clearRect(r.x, r.y, r.w, r.h);
+    for (const t of st.targets) {
+      if (t.created) this.detachInk(t.ink);
+      else if (r) this.uploadMask(t.ink, r);
     }
     this.emit();
   }
@@ -867,7 +955,8 @@ export class Engine {
     const linesOnly = new Float32Array(MAX_SLOTS);
     const tint = new Float32Array(MAX_SLOTS * 3);
     const tintA = new Float32Array(MAX_SLOTS);
-    let key = `${opts.maskAlpha.toFixed(2)}${opts.showLines ? 1 : 0}${this.activeInkId}`;
+    let key = `${opts.maskAlpha.toFixed(2)}${opts.showLines ? 1 : 0}${this.selectedInkId}${this.overlayColor}`;
+    const [tr, tg, tb] = hexToRgb(this.overlayColor);
     const u = t / loop;
     for (const ink of this.inks) {
       if (!ink.visible) continue;
@@ -890,11 +979,11 @@ export class Engine {
         phase[i] = (u * cycles) % 1;
         key += `|${i}p${phase[i].toFixed(4)}`;
       }
-      const [r, g, b] = hexToRgb(ink.color);
-      tint[i * 3] = r;
-      tint[i * 3 + 1] = g;
-      tint[i * 3 + 2] = b;
-      tintA[i] = this.showMask || ink.id === this.activeInkId ? 1 : 0.3;
+      tint[i * 3] = tr;
+      tint[i * 3 + 1] = tg;
+      tint[i * 3 + 2] = tb;
+      // A selected ink stands out; everything else stays faint while one is selected.
+      tintA[i] = !this.selectedInkId || ink.id === this.selectedInkId ? 1 : 0.25;
     }
     if (skipIfKey !== null && key === skipIfKey) return key;
 

@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
 import { ImagePlus, Sparkles, X } from 'lucide-react';
-import { engine, useAdvanced, useEngine, useToast, viewCommands } from './store';
+import { EFFECT_BY_ID } from '../engine/effects';
+import { engine, useAdvanced, useBrushPreview, useEngine, useToast, viewCommands } from './store';
 
 export function Hint() {
   const e = useEngine();
-  const ink = e.activeInk;
-  if (!e.hasImage || !ink || e.anyPaint || e.isStroking) return null;
+  if (!e.hasImage || e.anyPaint || e.isStroking) return null;
+  const brushName = EFFECT_BY_ID[e.inkBrush.effect].name;
   return (
     <div className="hint" onPointerDown={(ev) => ev.stopPropagation()}>
       <span>
-        Brush over the lines you want to bring to life with <b style={{ color: ink.color }}>{ink.name}</b>
+        Brush over the lines you want to bring to life with <b style={{ color: e.overlayColor }}>{brushName}</b>
       </span>
-      <button type="button" className="primary-btn small" onClick={() => e.fillInk(ink.id)}>
+      <button type="button" className="primary-btn small" onClick={() => e.fillWithBrush()}>
         <Sparkles size={15} /> Animate everything
       </button>
     </div>
@@ -65,9 +66,9 @@ const SHORTCUTS: [string, string][] = [
   ['P', 'Play / pause'],
   ['H', 'Always show ink / hide ink'],
   ['L', 'Inks panel'],
-  ['1 – 8', 'Select ink'],
+  ['1 – 5', 'Brush effect (Boil, Jitter, Wobble, Shake, Crumple)'],
   ['Tab', 'Hide interface'],
-  ['Ctrl O', 'Import art'],
+  ['Ctrl I / Ctrl O', 'Import art'],
   ['Ctrl E', 'Export'],
 ];
 
@@ -128,6 +129,20 @@ export function StatsOverlay() {
   return (
     <div className="stats-overlay">
       {engine.stats.fps} redraws/s · {engine.stats.drawMs.toFixed(1)} ms · {engine.width}×{engine.height}
+    </div>
+  );
+}
+
+/** While resizing the brush, show it at its real on-screen size in the middle of the canvas. */
+export function BrushSizePreview({ zoom }: { zoom: number }) {
+  const e = useEngine();
+  const on = useBrushPreview();
+  if (!on || !e.hasImage) return null;
+  const d = Math.max(4, e.brush.size * zoom);
+  return (
+    <div className="brush-preview" aria-hidden="true">
+      <div className={`brush-preview-circle ${e.brush.hard ? 'hard' : 'soft'}`} style={{ width: d, height: d, borderColor: e.overlayColor }} />
+      <span className="brush-preview-label">{e.brush.size} px</span>
     </div>
   );
 }

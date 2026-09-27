@@ -193,18 +193,15 @@ export function CanvasView({ onZoom }: { onZoom: (s: number) => void }) {
 
   const beginPaint = (ev: RPointerEvent, isPen: boolean) => {
     const st = state.current;
-    if (!engine.activeInk) {
-      toast('Add an ink first (Inks panel → +)');
-      return;
-    }
     // Pen eraser end (or eraser button) erases temporarily, like Krita.
     st.tempEraser = isPen && (ev.button === 5 || (ev.buttons & 32) !== 0);
     const prevTool = engine.tool;
     if (st.tempEraser) engine.tool = 'eraser';
     const p = toImage(local(ev));
-    const ok = engine.beginStroke(p.x, p.y, ev.pressure || 0.5, isPen);
+    const result = engine.beginStroke(p.x, p.y, ev.pressure || 0.5, isPen);
     if (st.tempEraser) engine.tool = prevTool;
-    if (!ok) return;
+    if (result === 'full') toast('You’ve used 16 different inks — pick one under “On your art” and tap “Use for brush”', 3200);
+    if (result !== 'ok') return;
     st.mode = 'paint';
     st.paintId = ev.pointerId;
     st.paintIsPen = isPen;

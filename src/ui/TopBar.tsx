@@ -17,6 +17,8 @@ import {
   Sun,
 } from 'lucide-react';
 import { IconButton } from './controls';
+import { EFFECT_BY_ID } from '../engine/effects';
+import { EffectGlyph } from './EffectGlyph';
 import { setTheme, useEngine, useTheme } from './store';
 
 export type PanelId = 'inks' | 'art' | null;
@@ -42,7 +44,6 @@ export function TopBar({
   const theme = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const active = e.activeInk;
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -71,7 +72,7 @@ export function TopBar({
                 <House size={17} /> Home
               </button>
               <button role="menuitem" onClick={onImport}>
-                <ImagePlus size={17} /> Replace art… <kbd>Ctrl O</kbd>
+                <ImagePlus size={17} /> Replace art… <kbd>Ctrl I</kbd>
               </button>
               <button role="menuitem" onClick={onSample}>
                 <Sparkles size={17} /> Load sample art
@@ -90,7 +91,7 @@ export function TopBar({
         <IconButton label="Artwork settings" active={panel === 'art'} onClick={() => toggle('art')}>
           <SlidersHorizontal size={20} />
         </IconButton>
-        <IconButton label="Replace art" shortcut="Ctrl+O" onClick={onImport}>
+        <IconButton label="Replace art" shortcut="Ctrl+I" onClick={onImport}>
           <ImagePlus size={20} />
         </IconButton>
       </div>
@@ -123,11 +124,13 @@ export function TopBar({
         <button
           type="button"
           className="ink-swatch-btn"
-          aria-label={active ? `Current ink: ${active.name}` : 'No ink selected'}
-          title={active ? `Current ink: ${active.name}` : 'Add an ink'}
+          aria-label={`Ink brush: ${EFFECT_BY_ID[e.inkBrush.effect].name}`}
+          title={`Ink brush: ${EFFECT_BY_ID[e.inkBrush.effect].name}`}
           onClick={() => toggle('inks')}
-          style={{ '--ink': active?.color ?? '#555' } as CSSProperties}
-        />
+          style={{ '--ink': e.overlayColor } as CSSProperties}
+        >
+          <EffectGlyph effect={e.inkBrush.effect} size={22} color="#16161a" />
+        </button>
         <button type="button" className="export-btn" onClick={onExport}>
           <Share size={17} />
           <span>Export</span>

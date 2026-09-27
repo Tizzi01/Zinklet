@@ -96,16 +96,13 @@ export const EFFECT_BY_ID: Record<EffectId, EffectDef> = Object.fromEntries(
   EFFECTS.map((e) => [e.id, e]),
 ) as Record<EffectId, EffectDef>;
 
-/** Mask tint colors, one per ink slot. Bright so they read on any artwork. */
-export const INK_COLORS = [
-  '#ff5d8f',
-  '#3fd0ff',
-  '#ffd23f',
-  '#7cff6b',
-  '#b18cff',
-  '#ff9f43',
-  '#4dffd2',
-  '#ff6bf0',
-];
+/** Different ink groups (effect + settings combos) per artwork. Must match MAX_SLOTS in shaders.ts. */
+export const MAX_INKS = 16;
 
-export const MAX_INKS = 8;
+/** Choices for the ink overlay color (shown while painting). */
+export const OVERLAY_COLORS = [
+  { id: 'orange', label: 'Orange', hex: '#ff8a3d' },
+  { id: 'blue', label: 'Light blue', hex: '#4cc9ff' },
+  { id: 'pink', label: 'Pink', hex: '#ff5d8f' },
+  { id: 'green', label: 'Green', hex: '#4ee07a' },
+];

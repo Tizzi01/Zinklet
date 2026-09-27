@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { Engine, MAX_SIDE } from '../engine/Engine';
 import { makeSampleArt } from '../engine/sample';
+import { EFFECT_BY_ID, OVERLAY_COLORS } from '../engine/effects';
 
 let instance: Engine | null = null;
 let initError: string | null = null;
@@ -166,6 +167,34 @@ export function setTheme(theme: Theme) {
   themeStore.set(theme);
 }
 
+// ------------------------------------------------------------------ ink overlay color
+
+const INK_COLOR_KEY = 'zinklet.inkColor';
+{
+  const saved = OVERLAY_COLORS.find((c) => c.id === readLocal(INK_COLOR_KEY));
+  if (saved && instance) instance.overlayColor = saved.hex;
+}
+
+export function setInkColor(id: string) {
+  const c = OVERLAY_COLORS.find((o) => o.id === id);
+  if (!c) return;
+  writeLocal(INK_COLOR_KEY, c.id);
+  engine.setOverlayColor(c.hex);
+}
+
+// ------------------------------------------------------------------ brush size preview
+// While the size slider (or [ ]) is in use, show the brush at its real on-screen size.
+
+const brushPreviewStore = createStore(false);
+let brushPreviewTimer = 0;
+export const useBrushPreview = brushPreviewStore.use;
+
+export function setBrushPreview(on: boolean, autoHideMs = 0) {
+  clearTimeout(brushPreviewTimer);
+  brushPreviewStore.set(on);
+  if (on && autoHideMs) brushPreviewTimer = window.setTimeout(() => brushPreviewStore.set(false), autoHideMs);
+}
+
 // ------------------------------------------------------------------ canvas settings (home screen)
 
 export type CanvasPreset = 'match' | 'square' | 'portrait' | 'story' | 'wide' | 'custom';
@@ -279,7 +308,6 @@ export async function importArtFile(file: File | Blob, mode: 'new' | 'replace' =
   const replacing = mode === 'replace' && engine.hasImage;
   if (!replacing) engine.reset();
   await engine.setImage(composeArt(img).canvas);
-  if (engine.inks.length === 0) engine.addInk('boil', false);
   engine.dirty = replacing;
   requestAnimationFrame(() => viewCommands.fit());
   toast(replacing ? 'Art replaced — your inks were kept' : 'Art imported');
@@ -296,13 +324,15 @@ export async function loadSample() {
   });
   engine.reset();
   await engine.setImage(placed.canvas);
-  const boil = engine.addInk('boil', false)!;
-  engine.fillInk(boil.id);
+  engine.setInkBrush({ effect: 'boil', params: EFFECT_BY_ID.boil.defaults });
+  engine.fillWithBrush();
   // A second, livelier boil on the stars shows off per-area control.
-  const stars = engine.addInk('boil', false)!;
-  engine.updateInk(stars.id, { name: 'Boil · stars', params: { strength: 85, speed: 12 } });
-  engine.paintCircles(stars.id, art.stars.map(at));
-  engine.setActiveInk(boil.id);
+  const stars = engine.addInk('boil', { strength: 85, speed: 12 });
+  if (stars) {
+    engine.updateInk(stars.id, { name: 'Boil · stars' });
+    engine.paintCircles(stars.id, art.stars.map(at));
+  }
+  engine.selectInk(null);
   engine.history.clear();
   engine.dirty = false;
   requestAnimationFrame(() => viewCommands.fit());
