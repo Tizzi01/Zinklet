@@ -1,13 +1,13 @@
 import { useRef } from 'react';
-import { Dices, ImagePlus, Lock } from 'lucide-react';
+import { Dices, ImagePlus } from 'lucide-react';
 import { Segmented, Slider, Toggle } from './controls';
-import { lockDev, setDev, toast, useDev, useEngine } from './store';
+import { setAdvanced, toast, useAdvanced, useEngine } from './store';
 
 export function ArtPanel({ onClose, onReplace }: { onClose: () => void; onReplace: () => void }) {
   const e = useEngine();
-  const dev = useDev();
+  const adv = useAdvanced();
   const timer = useRef(0);
-  const loopOptions = dev.unlocked ? [0.5, 1, 2, 3, 4, 6, 8] : [1, 2, 3, 4];
+  const loopOptions = [0.5, 1, 2, 3, 4, 6, 8];
   const linesWereShown = useRef(false);
 
   const reanalyze = () => {
@@ -65,41 +65,25 @@ export function ArtPanel({ onClose, onReplace }: { onClose: () => void; onReplac
           <ImagePlus size={17} /> Replace art (keeps your inks)
         </button>
 
-        {dev.unlocked && (
-          <>
-            <div className="divider" />
-            <div className="dev-head">
-              Dev tools <em className="dev-badge">DEV</em>
-            </div>
-            <Toggle
-              label="Uncapped sliders"
-              hint="Strength, speed and size go way past normal"
-              checked={dev.uncapped}
-              onChange={(v) => setDev({ uncapped: v })}
-            />
-            <Toggle label="Performance stats" hint="Redraws per second and draw time" checked={dev.stats} onChange={(v) => setDev({ stats: v })} />
-            <button
-              type="button"
-              className="wide-btn"
-              onClick={() => {
-                e.rerollSeeds();
-                toast('New randomness for every ink');
-              }}
-            >
-              <Dices size={17} /> Re-roll randomness
-            </button>
-            <button
-              type="button"
-              className="wide-btn"
-              onClick={() => {
-                lockDev();
-                toast('Dev mode locked');
-              }}
-            >
-              <Lock size={17} /> Lock dev mode
-            </button>
-          </>
-        )}
+        <div className="divider" />
+        <div className="advanced-head">Advanced</div>
+        <Toggle
+          label="Uncapped sliders"
+          hint="Strength, speed and size go way past normal"
+          checked={adv.uncapped}
+          onChange={(v) => setAdvanced({ uncapped: v })}
+        />
+        <Toggle label="Performance stats" hint="Redraws per second and draw time" checked={adv.stats} onChange={(v) => setAdvanced({ stats: v })} />
+        <button
+          type="button"
+          className="wide-btn"
+          onClick={() => {
+            e.rerollSeeds();
+            toast('New randomness for every ink');
+          }}
+        >
+          <Dices size={17} /> Re-roll randomness
+        </button>
       </div>
     </section>
   );

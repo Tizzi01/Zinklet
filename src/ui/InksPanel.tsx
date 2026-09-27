@@ -4,12 +4,11 @@ import { EFFECTS, EFFECT_BY_ID, MAX_INKS, type EffectDef, type EffectId } from '
 import type { Ink } from '../engine/Engine';
 import { Slider, Toggle } from './controls';
 import { EffectGlyph } from './EffectGlyph';
-import { toast, useDev, useEngine } from './store';
+import { toast, useAdvanced, useEngine } from './store';
 
-/** Inks this user can pick: Boil for everyone, the rest only in dev mode. */
+/** Inks the user can pick. */
 function useAvailableEffects(): EffectDef[] {
-  const dev = useDev();
-  return EFFECTS.filter((fx) => dev.unlocked || !fx.devOnly);
+  return EFFECTS;
 }
 
 function EffectPicker({ onPick, current }: { onPick: (id: EffectId) => void; current?: EffectId }) {
@@ -24,10 +23,7 @@ function EffectPicker({ onPick, current }: { onPick: (id: EffectId) => void; cur
           onClick={() => onPick(fx.id)}
         >
           <EffectGlyph effect={fx.id} size={48} />
-          <span className="effect-name">
-            {fx.name}
-            {fx.devOnly && <em className="dev-badge">DEV</em>}
-          </span>
+          <span className="effect-name">{fx.name}</span>
           <small>{fx.blurb}</small>
         </button>
       ))}
@@ -37,14 +33,14 @@ function EffectPicker({ onPick, current }: { onPick: (id: EffectId) => void; cur
 
 function InkSettings({ ink }: { ink: Ink }) {
   const e = useEngine();
-  const dev = useDev();
+  const adv = useAdvanced();
   const canSwitch = useAvailableEffects().length > 1;
   const [showEffects, setShowEffects] = useState(false);
   const def = EFFECT_BY_ID[ink.effect];
   const p = ink.params;
   const speedLabel = def.stepped ? `${p.speed} fps` : `${p.speed}×`;
-  // Dev "uncapped sliders" lets values go well past the normal limits.
-  const cap = dev.uncapped ? 3 : 1;
+  // "Uncapped sliders" (Artwork → Advanced) lets values go well past the normal limits.
+  const cap = adv.uncapped ? 3 : 1;
 
   return (
     <div className="ink-settings">
@@ -72,13 +68,13 @@ function InkSettings({ ink }: { ink: Ink }) {
         label="Speed"
         value={p.speed}
         min={def.speedRange.min}
-        max={def.speedRange.max * (dev.uncapped ? 2.5 : 1)}
+        max={def.speedRange.max * (adv.uncapped ? 2.5 : 1)}
         step={def.speedRange.step}
         display={speedLabel}
         onChange={(v) => e.updateInk(ink.id, { params: { speed: v } })}
       />
       {def.hasSize && (
-        <Slider label="Wiggle size" value={p.size} min={0} max={100 * (dev.uncapped ? 2 : 1)} onChange={(v) => e.updateInk(ink.id, { params: { size: v } })} />
+        <Slider label="Wiggle size" value={p.size} min={0} max={100 * (adv.uncapped ? 2 : 1)} onChange={(v) => e.updateInk(ink.id, { params: { size: v } })} />
       )}
       <Toggle
         label="Lines only"

@@ -61,12 +61,9 @@ Procreate/Krita on painting; every feature must serve "import → ink → export
 ## Current focus
 
 - **Everything is free.** No Pro badges, locks, paywalls or pricing copy anywhere in the app until the owner says so.
-- **One ink at a time.** Only Boil is public; perfect it before releasing the next. The experimental inks
-  (jitter, wobble, shake, crumple) are marked `devOnly` in `effects.ts` and only appear in dev mode.
-- **Dev mode** (owner-only gimmick, not security): logo menu → "Enter a code…" (or "Have a code?" on the
-  start screen). The code is checked against an FNV-1a hash in `src/ui/store.ts` — never write the plain
-  code into the repo (it's public). Unlocks: dev inks, uncapped sliders, performance stats, re-roll
-  randomness, extra loop lengths. Remembered in localStorage (`zinklet.devMode`).
+- **All inks are open to everyone** (Boil, Jitter, Wobble, Shake, Crumple) — no codes, no hidden/dev labels.
+  Boil is the one being perfected first. Power options live under Artwork → Advanced
+  (uncapped sliders, performance stats, re-roll randomness).
 - Keep effects modular so future inks (and, later, paid ones) slot in via `effects.ts` + a shader branch.
 
 ## Dev tips

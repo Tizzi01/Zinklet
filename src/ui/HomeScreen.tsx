@@ -107,15 +107,25 @@ function CanvasSetup() {
       )}
 
       {s.preset !== 'match' && (
-        <Segmented
-          label="Art placement"
-          value={s.fit}
-          options={[
-            { value: 'fit', label: 'Fit (show all)' },
-            { value: 'fill', label: 'Fill (crop edges)' },
-          ]}
-          onChange={(fit) => setCanvasSettings({ fit })}
-        />
+        <>
+          <Segmented
+            label="Art placement"
+            value={s.fit}
+            options={[
+              { value: 'original', label: 'Original size' },
+              { value: 'fit', label: 'Fit' },
+              { value: 'fill', label: 'Fill' },
+            ]}
+            onChange={(fit) => setCanvasSettings({ fit })}
+          />
+          <p className="field-hint placement-hint">
+            {s.fit === 'original'
+              ? 'Your art keeps its exact pixel size and is centered — never stretched or blurred.'
+              : s.fit === 'fit'
+                ? 'Your art is scaled to fit inside the canvas (small art gets enlarged).'
+                : 'Your art is scaled to cover the whole canvas; edges may be cropped.'}
+          </p>
+        </>
       )}
 
       <div className="field-label">Background</div>
@@ -148,14 +158,12 @@ export function HomeScreen({
   onImport,
   onSample,
   onContinue,
-  onCode,
 }: {
   thumb: string;
   dragging: boolean;
   onImport: () => void;
   onSample: () => void;
   onContinue: () => void;
-  onCode: () => void;
 }) {
   const e = useEngine();
 
@@ -223,9 +231,6 @@ export function HomeScreen({
           </section>
         </div>
 
-        <button type="button" className="link-btn" onClick={onCode}>
-          Have a code?
-        </button>
       </main>
     </div>
   );

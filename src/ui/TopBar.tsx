@@ -13,12 +13,11 @@ import {
   SlidersHorizontal,
   Sparkles,
   House,
-  KeyRound,
   Moon,
   Sun,
 } from 'lucide-react';
 import { IconButton } from './controls';
-import { setTheme, useDev, useEngine, useTheme } from './store';
+import { setTheme, useEngine, useTheme } from './store';
 
 export type PanelId = 'inks' | 'art' | null;
 
@@ -30,7 +29,6 @@ export function TopBar({
   onSample,
   onHome,
   onShortcuts,
-  onCode,
 }: {
   panel: PanelId;
   setPanel: (p: PanelId) => void;
@@ -39,10 +37,8 @@ export function TopBar({
   onSample: () => void;
   onHome: () => void;
   onShortcuts: () => void;
-  onCode: () => void;
 }) {
   const e = useEngine();
-  const dev = useDev();
   const theme = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -68,7 +64,6 @@ export function TopBar({
               <path d="M14 18 C24 14 36 22 48 17 L20 46 C30 42 40 50 50 45" fill="none" stroke="currentColor" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             <span>Zinklet</span>
-            {dev.unlocked && <em className="dev-badge">DEV</em>}
           </button>
           {menuOpen && (
             <div className="menu" role="menu" onClick={() => setMenuOpen(false)}>
@@ -87,9 +82,6 @@ export function TopBar({
               <hr />
               <button role="menuitem" onClick={onShortcuts}>
                 <Keyboard size={17} /> Shortcuts & gestures <kbd>?</kbd>
-              </button>
-              <button role="menuitem" onClick={onCode}>
-                <KeyRound size={17} /> Enter a code…
               </button>
               <div className="menu-version">Zinklet v{__APP_VERSION__} · prototype</div>
             </div>

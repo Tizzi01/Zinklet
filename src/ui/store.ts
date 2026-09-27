@@ -50,71 +50,31 @@ export function useToast(): ToastState | null {
   );
 }
 
-// ------------------------------------------------------------------ dev mode
-// Hidden owner tools: unreleased inks and power settings. The unlock code is stored only as a
-// hash because the repo is public. It's a gimmick, not security.
+// ------------------------------------------------------------------ advanced settings
 
-const DEV_CODE_HASH = 0xd6c9f49b;
-const DEV_KEY = 'zinklet.devMode';
-
-function fnv1a(text: string): number {
-  let h = 0x811c9dc5;
-  for (const byte of new TextEncoder().encode(text)) {
-    h ^= byte;
-    h = Math.imul(h, 0x01000193) >>> 0;
-  }
-  return h >>> 0;
-}
-
-export interface DevState {
-  unlocked: boolean;
+export interface AdvancedSettings {
   /** Let ink sliders go past their normal limits. */
   uncapped: boolean;
-  /** Show the FPS / draw-time overlay. */
+  /** Show the redraws-per-second / draw-time overlay. */
   stats: boolean;
 }
 
-function loadDevUnlocked(): boolean {
-  try {
-    return localStorage.getItem(DEV_KEY) === '1';
-  } catch {
-    return false;
-  }
+let advanced: AdvancedSettings = { uncapped: false, stats: false };
+const advancedListeners = new Set<() => void>();
+
+export function setAdvanced(patch: Partial<AdvancedSettings>) {
+  advanced = { ...advanced, ...patch };
+  advancedListeners.forEach((fn) => fn());
 }
 
-let devState: DevState = { unlocked: loadDevUnlocked(), uncapped: false, stats: false };
-const devListeners = new Set<() => void>();
-
-export function setDev(patch: Partial<DevState>) {
-  devState = { ...devState, ...patch };
-  try {
-    if (devState.unlocked) localStorage.setItem(DEV_KEY, '1');
-    else localStorage.removeItem(DEV_KEY);
-  } catch {
-    /* private mode: dev mode just won't be remembered */
-  }
-  devListeners.forEach((fn) => fn());
-}
-
-export function useDev(): DevState {
+export function useAdvanced(): AdvancedSettings {
   return useSyncExternalStore(
     (fn) => {
-      devListeners.add(fn);
-      return () => devListeners.delete(fn);
+      advancedListeners.add(fn);
+      return () => advancedListeners.delete(fn);
     },
-    () => devState,
+    () => advanced,
   );
-}
-
-/** Returns true if the code unlocked dev mode. */
-export function tryUnlockDev(code: string): boolean {
-  if (fnv1a(code.trim().toUpperCase()) !== DEV_CODE_HASH) return false;
-  setDev({ unlocked: true });
-  return true;
-}
-
-export function lockDev() {
-  setDev({ unlocked: false, uncapped: false, stats: false });
 }
 
 // ------------------------------------------------------------------ view commands
@@ -189,6 +149,11 @@ function writeLocal(key: string, value: string) {
 
 export type Theme = 'dark' | 'light';
 const THEME_KEY = 'zinklet.theme';
+try {
+  localStorage.removeItem('zinklet.devMode'); // left over from v0.2–v0.4
+} catch {
+  /* ignore */
+}
 // index.html sets data-theme before first paint (no flash); read it back here.
 const themeStore = createStore<Theme>(document.documentElement.dataset.theme === 'light' ? 'light' : 'dark');
 
@@ -219,15 +184,19 @@ export interface CanvasSettings {
   /** Used when preset is 'custom'. */
   width: number;
   height: number;
-  /** How the art sits in a canvas of a different shape. */
-  fit: 'fit' | 'fill';
+  /**
+   * How the art sits in a canvas of a different size:
+   * original = keep its pixel size (never enlarged; shrunk only if bigger than the canvas),
+   * fit = scale to show all of it, fill = scale to cover the canvas (crops edges).
+   */
+  fit: 'original' | 'fit' | 'fill';
   background: 'transparent' | 'white' | 'black';
 }
 
 const CANVAS_KEY = 'zinklet.canvas';
 const canvasStore = createStore<CanvasSettings>(
   (() => {
-    const fallback: CanvasSettings = { preset: 'match', width: 1200, height: 1200, fit: 'fit', background: 'transparent' };
+    const fallback: CanvasSettings = { preset: 'match', width: 1200, height: 1200, fit: 'original', background: 'transparent' };
     try {
       return { ...fallback, ...JSON.parse(readLocal(CANVAS_KEY) ?? '{}') };
     } catch {
@@ -252,7 +221,7 @@ export function canvasSizeFor(artW: number, artH: number, s = canvasStore.get())
   w = Math.max(16, Math.round(w) || 16);
   h = Math.max(16, Math.round(h) || 16);
   const cap = Math.min(1, MAX_SIDE / Math.max(w, h));
-  return { w: Math.round(w * cap), h: Math.round(h * cap), capped: cap < 1 };
+  return { w: Math.round(w * cap), h: Math.round(h * cap), capped: cap < 1, cap };
 }
 
 /** Place art onto a canvas of the chosen size and background. Returns where the art landed. */
@@ -260,8 +229,17 @@ function composeArt(img: CanvasImageSource & { width: number; height: number }) 
   const aw = (img as HTMLImageElement).naturalWidth || img.width;
   const ah = (img as HTMLImageElement).naturalHeight || img.height;
   const s = canvasStore.get();
-  const { w, h } = canvasSizeFor(aw, ah, s);
-  const scale = s.preset === 'match' ? w / aw : s.fit === 'fit' ? Math.min(w / aw, h / ah) : Math.max(w / aw, h / ah);
+  const { w, h, cap } = canvasSizeFor(aw, ah, s);
+  const fitScale = Math.min(w / aw, h / ah);
+  const scale =
+    s.preset === 'match'
+      ? w / aw
+      : s.fit === 'fill'
+        ? Math.max(w / aw, h / ah)
+        : s.fit === 'fit'
+          ? fitScale
+          : // Original size: same pixels as imported (if the canvas had to be capped, the art shrinks with it).
+            Math.min(cap, fitScale);
   const dx = (w - aw * scale) / 2;
   const dy = (h - ah * scale) / 2;
   const canvas = document.createElement('canvas');

@@ -140,7 +140,7 @@ export class Engine {
   private needsRender = true;
   private lastKey = '';
   private raf = 0;
-  /** Preview loop stats for the dev overlay: frames drawn per second and CPU time per draw. */
+  /** Preview loop stats for the performance overlay: redraws per second and CPU time per draw. */
   readonly stats = { fps: 0, drawMs: 0 };
   private statFrames = 0;
   private statSince = performance.now();
@@ -495,7 +495,7 @@ export class Engine {
     this.emit();
   }
 
-  /** Dev tool: give every ink fresh randomness (a different-looking boil with the same settings). */
+  /** Give every ink fresh randomness (a different-looking boil with the same settings). */
   rerollSeeds() {
     for (const ink of this.inks) ink.seed = 1 + Math.floor(Math.random() * 9000);
     this.dirty = true;

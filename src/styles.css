@@ -651,16 +651,6 @@ kbd {
   font-size: 11px;
   line-height: 1.3;
 }
-.dev-badge {
-  font-style: normal;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-  padding: 2px 5px;
-  border-radius: 5px;
-  background: #3fd0ff;
-  color: #06222b;
-}
 
 .empty-inks {
   display: flex;
@@ -1269,61 +1259,10 @@ kbd {
   }
 }
 
-/* ------------------------------------------------------------------ dev mode */
+/* ------------------------------------------------------------------ advanced */
 
-.dev-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.advanced-head {
   font-weight: 800;
-}
-
-.code-modal {
-  max-width: 340px;
-}
-.code-input {
-  height: 48px;
-  padding: 0 14px;
-  border-radius: 12px;
-  border: 2px solid var(--panel-3);
-  background: var(--panel-2);
-  color: var(--text);
-  font: inherit;
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  user-select: text;
-}
-.code-input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-.code-input.wrong {
-  border-color: var(--danger);
-  animation: shake 0.3s;
-}
-@keyframes shake {
-  25% {
-    transform: translateX(-6px);
-  }
-  75% {
-    transform: translateX(6px);
-  }
-}
-
-.link-btn {
-  display: block;
-  margin: 14px auto 0;
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  font-size: 12px;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-.link-btn:hover {
-  color: var(--text);
 }
 
 .stats-overlay {

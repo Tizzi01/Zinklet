@@ -5,7 +5,7 @@ import { SideBar, sizeToT, tToSize } from './ui/SideBar';
 import { InksPanel } from './ui/InksPanel';
 import { ArtPanel } from './ui/ArtPanel';
 import { ExportDialog } from './ui/ExportDialog';
-import { CodeDialog, DropOverlay, Hint, ShortcutsDialog, StatsOverlay, Toast, ZoomBadge } from './ui/Overlays';
+import { DropOverlay, Hint, ShortcutsDialog, StatsOverlay, Toast, ZoomBadge } from './ui/Overlays';
 import { HomeScreen } from './ui/HomeScreen';
 import { engine, importArtFile, loadSample, toast, useEngine, viewCommands, viewInsets } from './ui/store';
 
@@ -19,7 +19,6 @@ export default function App() {
   const [uiHidden, setUiHidden] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const [codeOpen, setCodeOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [screen, setScreen] = useState<Screen>('home');
@@ -128,7 +127,6 @@ export default function App() {
           ev.preventDefault();
           openImport();
         }
-        if (k === 'escape') setCodeOpen(false);
         return;
       }
 
@@ -175,11 +173,10 @@ export default function App() {
         return;
       }
       if (mod || ev.altKey) return;
-      if (exportOpen || shortcutsOpen || codeOpen) {
+      if (exportOpen || shortcutsOpen) {
         if (k === 'escape') {
           setExportOpen(false);
           setShortcutsOpen(false);
-          setCodeOpen(false);
         }
         return;
       }
@@ -299,7 +296,6 @@ export default function App() {
           onImport={openImport}
           onSample={onSample}
           onContinue={goEditor}
-          onCode={() => setCodeOpen(true)}
         />
       )}
 
@@ -313,7 +309,6 @@ export default function App() {
             onSample={onSample}
             onHome={goHome}
             onShortcuts={() => setShortcutsOpen(true)}
-            onCode={() => setCodeOpen(true)}
           />
           <SideBar />
           {panel === 'inks' && <InksPanel onClose={() => setPanel(null)} />}
@@ -333,7 +328,6 @@ export default function App() {
       {e.analyzing && <div className="analyzing">Finding your lines…</div>}
       {exportOpen && <ExportDialog onClose={() => setExportOpen(false)} />}
       {shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
-      {codeOpen && <CodeDialog onClose={() => setCodeOpen(false)} />}
       {dragging && screen === 'editor' && <DropOverlay />}
       <Toast />
 

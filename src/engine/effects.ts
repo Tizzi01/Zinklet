@@ -1,5 +1,4 @@
 // Catalog of invisible inks. The `shaderId` must match the branches in shaders.ts.
-// Only Boil is public right now; `devOnly` inks appear after unlocking dev mode.
 
 export type EffectId = 'boil' | 'jitter' | 'wobble' | 'shake' | 'crumple';
 
@@ -28,8 +27,6 @@ export interface EffectDef {
   speedRange: { min: number; max: number; step: number };
   hasSize: boolean;
   defaults: InkParams;
-  /** Hidden unless dev mode is unlocked (work in progress). */
-  devOnly: boolean;
 }
 
 export const EFFECTS: EffectDef[] = [
@@ -44,7 +41,6 @@ export const EFFECTS: EffectDef[] = [
     speedRange: { min: 2, max: 24, step: 1 },
     hasSize: true,
     defaults: { strength: 45, speed: 8, size: 40, linesOnly: true },
-    devOnly: false,
   },
   {
     id: 'jitter',
@@ -57,7 +53,6 @@ export const EFFECTS: EffectDef[] = [
     speedRange: { min: 4, max: 30, step: 1 },
     hasSize: true,
     defaults: { strength: 45, speed: 15, size: 40, linesOnly: true },
-    devOnly: true,
   },
   {
     id: 'wobble',
@@ -70,7 +65,6 @@ export const EFFECTS: EffectDef[] = [
     speedRange: { min: 0.25, max: 3, step: 0.25 },
     hasSize: true,
     defaults: { strength: 40, speed: 1, size: 50, linesOnly: false },
-    devOnly: true,
   },
   {
     id: 'shake',
@@ -83,7 +77,6 @@ export const EFFECTS: EffectDef[] = [
     speedRange: { min: 2, max: 24, step: 1 },
     hasSize: false,
     defaults: { strength: 35, speed: 12, size: 50, linesOnly: false },
-    devOnly: true,
   },
   {
     id: 'crumple',
@@ -96,7 +89,6 @@ export const EFFECTS: EffectDef[] = [
     speedRange: { min: 1, max: 12, step: 1 },
     hasSize: true,
     defaults: { strength: 50, speed: 4, size: 62, linesOnly: false },
-    devOnly: true,
   },
 ];
 

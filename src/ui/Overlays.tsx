@@ -1,6 +1,6 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { ImagePlus, Sparkles, X } from 'lucide-react';
-import { engine, toast, tryUnlockDev, useDev, useEngine, useToast, viewCommands } from './store';
+import { engine, useAdvanced, useEngine, useToast, viewCommands } from './store';
 
 export function Hint() {
   const e = useEngine();
@@ -116,59 +116,15 @@ export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-export function CodeDialog({ onClose }: { onClose: () => void }) {
-  const [code, setCode] = useState('');
-  const [wrong, setWrong] = useState(false);
-  const submit = (ev: FormEvent) => {
-    ev.preventDefault();
-    if (tryUnlockDev(code)) {
-      toast('Dev mode unlocked — new inks and Dev tools are available', 2600);
-      onClose();
-    } else {
-      setWrong(true);
-    }
-  };
-  return (
-    <div className="modal-backdrop" onPointerDown={(ev) => ev.target === ev.currentTarget && onClose()}>
-      <form className="modal code-modal" role="dialog" aria-modal="true" aria-labelledby="code-title" onSubmit={submit}>
-        <div className="modal-head">
-          <h2 id="code-title">Enter a code</h2>
-          <button type="button" className="ghost-btn" onClick={onClose} aria-label="Close">
-            <X size={18} />
-          </button>
-        </div>
-        <input
-          className={`code-input ${wrong ? 'wrong' : ''}`}
-          type="text"
-          autoFocus
-          autoComplete="off"
-          autoCapitalize="characters"
-          spellCheck={false}
-          placeholder="Code"
-          value={code}
-          onChange={(ev) => {
-            setCode(ev.target.value);
-            setWrong(false);
-          }}
-        />
-        {wrong && <p className="error-note">That code doesn’t work.</p>}
-        <button type="submit" className="primary-btn wide" disabled={!code.trim()}>
-          Unlock
-        </button>
-      </form>
-    </div>
-  );
-}
-
 export function StatsOverlay() {
-  const dev = useDev();
+  const adv = useAdvanced();
   const [, tick] = useState(0);
   useEffect(() => {
-    if (!dev.stats) return;
+    if (!adv.stats) return;
     const id = window.setInterval(() => tick((n) => n + 1), 500);
     return () => clearInterval(id);
-  }, [dev.stats]);
-  if (!dev.unlocked || !dev.stats) return null;
+  }, [adv.stats]);
+  if (!adv.stats) return null;
   return (
     <div className="stats-overlay">
       {engine.stats.fps} redraws/s · {engine.stats.drawMs.toFixed(1)} ms · {engine.width}×{engine.height}
