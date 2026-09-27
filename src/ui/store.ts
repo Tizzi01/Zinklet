@@ -281,7 +281,7 @@ function composeArt(img: CanvasImageSource & { width: number; height: number }) 
   }
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(img, dx, dy, aw * scale, ah * scale);
-  return { canvas, scale, dx, dy };
+  return { canvas, scale, dx, dy, artSide: Math.max(aw, ah) * scale };
 }
 
 /**
@@ -307,7 +307,8 @@ export async function importArtFile(file: File | Blob, mode: 'new' | 'replace' =
   }
   const replacing = mode === 'replace' && engine.hasImage;
   if (!replacing) engine.reset();
-  await engine.setImage(composeArt(img).canvas);
+  const placed = composeArt(img);
+  await engine.setImage(placed.canvas, placed.artSide);
   engine.dirty = replacing;
   requestAnimationFrame(() => viewCommands.fit());
   toast(replacing ? 'Art replaced — your inks were kept' : 'Art imported');
@@ -323,7 +324,7 @@ export async function loadSample() {
     r: c.r * placed.scale,
   });
   engine.reset();
-  await engine.setImage(placed.canvas);
+  await engine.setImage(placed.canvas, placed.artSide);
   engine.setInkBrush({ effect: 'boil', params: EFFECT_BY_ID.boil.defaults });
   engine.fillWithBrush();
   // A second, livelier boil on the stars shows off per-area control.

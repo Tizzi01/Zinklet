@@ -58,7 +58,9 @@ Procreate/Krita on painting; every feature must serve "import → ink → export
 - Painted strokes go into an **ink group** (`Ink`) whose effect + settings match the brush exactly; if none
   matches, a new group is created. Changing the brush never changes ink already on the art.
 - The Inks panel's **"On your art"** list shows the groups. Selecting one highlights it and edits only it.
-- The eraser removes ink from every visible group. Up to 16 groups per artwork (`MAX_INKS` = `MAX_SLOTS`).
+- **One ink per spot:** painting replaces any other visible ink under the stroke (inks never stack their
+  motion); "Animate everything" replaces all visible inks. The eraser removes ink from every visible group.
+- Motion amounts are scaled to the **art's** size on the canvas (`artSide`), not the canvas size. Up to 16 groups per artwork (`MAX_INKS` = `MAX_SLOTS`).
 - The ink overlay uses one color for all groups (`engine.overlayColor`, default orange, set in Artwork panel).
 
 ## Animation timing rules

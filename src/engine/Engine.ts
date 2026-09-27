@@ -53,10 +53,15 @@ interface StrokeTarget {
   mask: HTMLCanvasElement;
   /** Created for this stroke (undo removes it again). */
   created: boolean;
+  /** Remove ink here instead of adding it. */
+  erase: boolean;
 }
 
 interface StrokeState {
-  /** One ink when painting; every visible ink when erasing. */
+  /**
+   * Painting: the brush's ink gets the stroke, and every other visible ink is erased under it
+   * (one ink per spot, so inks never stack). Erasing: every visible ink is erased.
+   */
   targets: StrokeTarget[];
   eraser: boolean;
   opacity: number;
@@ -115,6 +120,8 @@ export class Engine {
   hasAlpha = false;
   analyzing = false;
   sensitivity = 50;
+  /** Long side of the artwork itself (px on the canvas). Motion is scaled to this, not the canvas. */
+  private artSide = 0;
   private imageData: ImageData | null = null;
   private layers: { src: Uint8Array; lines: Uint8Array; fill: Uint8Array } | null = null;
 
@@ -322,7 +329,7 @@ export class Engine {
   // ---------------------------------------------------------------- image
 
   /** Load (or replace) the artwork. Existing inks are kept and rescaled to fit. */
-  async setImage(source: CanvasImageSource & { width: number; height: number }) {
+  async setImage(source: CanvasImageSource & { width: number; height: number }, artSide?: number) {
     let w = (source as HTMLImageElement).naturalWidth || source.width;
     let h = (source as HTMLImageElement).naturalHeight || source.height;
     const s = Math.min(1, MAX_SIDE / Math.max(w, h));
@@ -346,6 +353,7 @@ export class Engine {
     const oldMaskH = this.maskH;
     this.width = w;
     this.height = h;
+    this.artSide = artSide !== undefined ? artSide * s : Math.max(w, h);
     this.maskScale = Math.max(w, h) > 1024 ? 0.5 : 1;
     this.maskW = Math.max(1, Math.round(w * this.maskScale));
     this.maskH = Math.max(1, Math.round(h * this.maskScale));
@@ -562,33 +570,45 @@ export class Engine {
     this.emit();
   }
 
-  /** "Animate everything": cover the whole artwork with the current brush. */
+  /** "Animate everything": the whole artwork gets the current brush (replacing other visible inks). */
   fillWithBrush() {
     let ink = this.findBrushInk();
     const created = !ink;
     if (!ink) ink = this.createInk(this.inkBrush.effect, this.inkBrush.params);
     if (!ink) return false;
-    const mask = this.masks.get(ink.id)!;
-    const cx = ctx2d(mask);
-    const before = cx.getImageData(0, 0, mask.width, mask.height);
-    cx.globalCompositeOperation = 'source-over';
-    cx.fillStyle = '#fff';
-    cx.fillRect(0, 0, this.maskW, this.maskH);
-    const after = cx.getImageData(0, 0, mask.width, mask.height);
-    ink.painted = true;
-    this.uploadMask(ink, null);
-    this.flashMask();
     const target = ink;
+    const affected = [target, ...this.inks.filter((i) => i !== target && i.visible)];
+    const changes = affected.map((i) => {
+      const mask = this.masks.get(i.id)!;
+      const cx = ctx2d(mask);
+      const before = cx.getImageData(0, 0, mask.width, mask.height);
+      if (i === target) {
+        cx.globalCompositeOperation = 'source-over';
+        cx.fillStyle = '#fff';
+        cx.fillRect(0, 0, this.maskW, this.maskH);
+      } else {
+        cx.clearRect(0, 0, this.maskW, this.maskH);
+      }
+      this.uploadMask(i, null);
+      return { ink: i, mask, before, after: cx.getImageData(0, 0, mask.width, mask.height) };
+    });
+    target.painted = true;
+    this.flashMask();
     this.history.push({
       label: `Animate everything (${target.name})`,
       undo: () => {
-        ctx2d(mask).putImageData(before, 0, 0);
-        if (created) this.detachInk(target);
-        else if (this.inks.includes(target)) this.uploadMask(target, null);
+        for (const c of changes) {
+          ctx2d(c.mask).putImageData(c.before, 0, 0);
+          if (c.ink === target && created) this.detachInk(target);
+          else if (this.inks.includes(c.ink)) this.uploadMask(c.ink, null);
+        }
       },
       redo: () => {
-        ctx2d(mask).putImageData(after, 0, 0);
-        this.attachInk(target);
+        for (const c of changes) {
+          ctx2d(c.mask).putImageData(c.after, 0, 0);
+          if (c.ink === target) this.attachInk(target);
+          else if (this.inks.includes(c.ink)) this.uploadMask(c.ink, null);
+        }
       },
     });
     this.dirty = true;
@@ -726,9 +746,10 @@ export class Engine {
   beginStroke(x: number, y: number, pressure: number, isPen: boolean): 'ok' | 'nothing' | 'full' {
     if (!this.hasImage) return 'nothing';
     const eraser = this.tool === 'eraser';
+    const eraseTarget = (ink: Ink): StrokeTarget => ({ ink, mask: this.masks.get(ink.id)!, created: false, erase: true });
     let targets: StrokeTarget[];
     if (eraser) {
-      targets = this.inks.filter((i) => i.visible).map((ink) => ({ ink, mask: this.masks.get(ink.id)!, created: false }));
+      targets = this.inks.filter((i) => i.visible).map(eraseTarget);
       if (!targets.length) return 'nothing';
     } else {
       let ink = this.findBrushInk();
@@ -736,7 +757,11 @@ export class Engine {
       if (!ink) ink = this.createInk(this.inkBrush.effect, this.inkBrush.params);
       if (!ink) return 'full';
       ink.visible = true;
-      targets = [{ ink, mask: this.masks.get(ink.id)!, created }];
+      const brushInk = ink;
+      targets = [
+        { ink: brushInk, mask: this.masks.get(brushInk.id)!, created, erase: false },
+        ...this.inks.filter((i) => i !== brushInk && i.visible).map(eraseTarget),
+      ];
     }
     this.ensureTip(this.brush.hard);
     const s = this.maskScale;
@@ -808,10 +833,10 @@ export class Engine {
     st.pending = null;
     if (!r) return;
     st.bbox = unionRect(st.bbox, r);
-    for (const t of st.targets) this.uploadMask(t.ink, r, this.composeStroke(st, t.mask, r));
+    for (const t of st.targets) this.uploadMask(t.ink, r, this.composeStroke(st, t, r));
   }
 
-  private composeStroke(st: StrokeState, mask: HTMLCanvasElement, r: Rect): ImageData {
+  private composeStroke(st: StrokeState, target: StrokeTarget, r: Rect): ImageData {
     if (this.scratch.width < r.w || this.scratch.height < r.h) {
       this.scratch = make2d(Math.max(r.w, this.scratch.width), Math.max(r.h, this.scratch.height));
     }
@@ -819,8 +844,8 @@ export class Engine {
     sx.globalCompositeOperation = 'source-over';
     sx.globalAlpha = 1;
     sx.clearRect(0, 0, r.w, r.h);
-    sx.drawImage(mask, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
-    sx.globalCompositeOperation = st.eraser ? 'destination-out' : 'source-over';
+    sx.drawImage(target.mask, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
+    sx.globalCompositeOperation = target.erase ? 'destination-out' : 'source-over';
     sx.globalAlpha = st.opacity;
     sx.drawImage(this.strokeCanvas, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
     sx.globalCompositeOperation = 'source-over';
@@ -843,13 +868,13 @@ export class Engine {
       const before = mctx.getImageData(r.x, r.y, r.w, r.h);
       mctx.save();
       mctx.globalAlpha = st.opacity;
-      mctx.globalCompositeOperation = st.eraser ? 'destination-out' : 'source-over';
+      mctx.globalCompositeOperation = t.erase ? 'destination-out' : 'source-over';
       mctx.drawImage(this.strokeCanvas, r.x, r.y, r.w, r.h, r.x, r.y, r.w, r.h);
       mctx.restore();
       return { ...t, before, after: mctx.getImageData(r.x, r.y, r.w, r.h) };
     });
     this.strokeCanvas.getContext('2d')!.clearRect(r.x, r.y, r.w, r.h);
-    if (!st.eraser) for (const t of st.targets) t.ink.painted = true;
+    for (const t of st.targets) if (!t.erase) t.ink.painted = true;
     this.flashMask(1100);
     this.history.push({
       label: st.eraser ? 'Erase' : `Paint ${st.targets[0].ink.name}`,
@@ -945,7 +970,7 @@ export class Engine {
    */
   renderFrame(t: number, opts: FrameOptions, skipIfKey: string | null = null): string {
     const loop = this.loopSeconds;
-    const unit = Math.max(this.width, this.height) / 1000;
+    const unit = (this.artSide || Math.max(this.width, this.height)) / 1000;
     const type = new Int32Array(MAX_SLOTS).fill(-1);
     const amp = new Float32Array(MAX_SLOTS);
     const scale = new Float32Array(MAX_SLOTS).fill(1);
