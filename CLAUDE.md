@@ -14,7 +14,7 @@ Procreate/Krita on painting; every feature must serve "import → ink → export
 2. **Feels like Procreate/Krita.** Artists should know how to use it without a tutorial:
    - Procreate layout: tools top-right, brush size + opacity vertical sliders on the left edge, inks panel
      on the right like the Layers panel.
-   - Krita/Photoshop shortcuts: `B` brush, `E` eraser, `[`/`]` size, `Ctrl+Z`/`Ctrl+Shift+Z`/`Ctrl+Y`,
+   - Krita/Photoshop shortcuts: `V` move/resize art, `B` brush, `E` eraser, `[`/`]` size, `Ctrl+Z`/`Ctrl+Shift+Z`/`Ctrl+Y`,
      `Space`+drag pan, `Ctrl+0` fit, `Ctrl+1` 100%, `Tab` hide UI.
    - Procreate gestures: pinch zoom/rotate-free pan, two-finger tap undo, three-finger tap redo.
 3. **Pen and touch are first-class.** Pen pressure changes brush size. Once a pen is seen, touch only
@@ -60,6 +60,8 @@ Procreate/Krita on painting; every feature must serve "import → ink → export
 - The Inks panel's **"On your art"** list shows the groups. Selecting one highlights it and edits only it.
 - **One ink per spot:** painting replaces any other visible ink under the stroke (inks never stack their
   motion); "Animate everything" replaces all visible inks. The eraser removes ink from every visible group.
+- **Move tool (V):** the store keeps the imported picture un-cropped plus `engine.artPlacement`; moving/resizing
+  re-composes the canvas via `engine.moveArt()`, which carries every ink mask along (and re-runs line detection).
 - Motion amounts are scaled to the **art's** size on the canvas (`artSide`), not the canvas size. Up to 16 groups per artwork (`MAX_INKS` = `MAX_SLOTS`).
 - The ink overlay uses one color for all groups (`engine.overlayColor`, default orange, set in Artwork panel).
 

@@ -1,5 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
-import { engine, toast, useEngine, viewCommands, viewInsets } from './store';
+import type { ArtPlacement } from '../engine/Engine';
+import {
+  artSize,
+  commitArtPlacement,
+  drawArtPreview,
+  engine,
+  setLivePlacement,
+  toast,
+  useEngine,
+  useLivePlacement,
+  viewCommands,
+  viewInsets,
+} from './store';
 
 interface View {
   x: number;
@@ -38,6 +50,7 @@ export function CanvasView({ onZoom }: { onZoom: (s: number) => void }) {
     const v = view.current;
     const board = boardRef.current!;
     board.style.transform = `translate(${v.x}px, ${v.y}px) scale(${v.s})`;
+    board.style.setProperty('--zoom', String(v.s));
     board.style.width = `${engine.width}px`;
     board.style.height = `${engine.height}px`;
     // Crisp pixels when zoomed way in, smooth when zoomed out.
@@ -134,7 +147,8 @@ export function CanvasView({ onZoom }: { onZoom: (s: number) => void }) {
 
   const state = useRef({
     pointers: new Map<number, Ptr>(),
-    mode: 'none' as 'none' | 'paint' | 'pan' | 'gesture',
+    mode: 'none' as 'none' | 'paint' | 'pan' | 'gesture' | 'art',
+    art: null as null | { start: { x: number; y: number }; from: ArtPlacement; corner: string | undefined; live: ArtPlacement },
     paintId: -1,
     paintIsPen: false,
     paintStart: 0,
@@ -164,7 +178,7 @@ export function CanvasView({ onZoom }: { onZoom: (s: number) => void }) {
   const updateCursor = (p: { x: number; y: number } | null, type?: string) => {
     const c = cursorRef.current;
     if (!c) return;
-    if (!p || type === 'touch' || !engine.hasImage) {
+    if (!p || type === 'touch' || !engine.hasImage || engine.tool === 'move') {
       c.style.display = 'none';
       return;
     }
@@ -191,8 +205,54 @@ export function CanvasView({ onZoom }: { onZoom: (s: number) => void }) {
     };
   };
 
+  /** Move tool: drag the picture, or drag a corner handle to resize it around the opposite corner. */
+  const beginArtDrag = (ev: RPointerEvent) => {
+    const st = state.current;
+    const from = engine.artPlacement;
+    if (!from || !artSize()) return;
+    const corner = (ev.target as HTMLElement).dataset?.corner;
+    st.mode = 'art';
+    st.paintId = ev.pointerId;
+    st.art = { start: toImage(local(ev)), from, corner, live: from };
+    setLivePlacement(from);
+  };
+
+  const moveArtDrag = (ev: RPointerEvent) => {
+    const a = state.current.art;
+    const size = artSize();
+    if (!a || !size) return;
+    const p = toImage(local(ev));
+    let next: ArtPlacement;
+    if (!a.corner) {
+      next = { ...a.from, x: a.from.x + p.x - a.start.x, y: a.from.y + p.y - a.start.y };
+    } else {
+      // Anchor is the opposite corner, in picture pixels.
+      const ax = a.corner.includes('w') ? size.aw : 0;
+      const ay = a.corner.includes('n') ? size.ah : 0;
+      const A = { x: a.from.x + ax * a.from.scale, y: a.from.y + ay * a.from.scale };
+      const d0 = Math.max(1, Math.hypot(a.start.x - A.x, a.start.y - A.y));
+      const d1 = Math.hypot(p.x - A.x, p.y - A.y);
+      const minScale = 16 / Math.max(size.aw, size.ah);
+      const scale = Math.max(minScale, a.from.scale * (d1 / d0));
+      next = { scale, x: A.x - ax * scale, y: A.y - ay * scale };
+    }
+    a.live = next;
+    setLivePlacement(next);
+  };
+
+  const endArtDrag = () => {
+    const a = state.current.art;
+    state.current.art = null;
+    if (!a) return;
+    void commitArtPlacement(a.live).finally(() => setLivePlacement(null));
+  };
+
   const beginPaint = (ev: RPointerEvent, isPen: boolean) => {
     const st = state.current;
+    if (engine.tool === 'move') {
+      beginArtDrag(ev);
+      return;
+    }
     // Pen eraser end (or eraser button) erases temporarily, like Krita.
     st.tempEraser = isPen && (ev.button === 5 || (ev.buttons & 32) !== 0);
     const prevTool = engine.tool;
@@ -265,6 +325,11 @@ export function CanvasView({ onZoom }: { onZoom: (s: number) => void }) {
       ptr.y = p.y;
     }
 
+    if (st.mode === 'art' && ev.pointerId === st.paintId) {
+      moveArtDrag(ev);
+      return;
+    }
+
     if (st.mode === 'paint' && ev.pointerId === st.paintId) {
       const events = ev.nativeEvent.getCoalescedEvents?.() ?? [];
       const list = events.length ? events : [ev.nativeEvent];
@@ -305,6 +370,13 @@ export function CanvasView({ onZoom }: { onZoom: (s: number) => void }) {
   const onPointerUp = (ev: RPointerEvent) => {
     const st = state.current;
     st.pointers.delete(ev.pointerId);
+
+    if (st.mode === 'art' && ev.pointerId === st.paintId) {
+      endArtDrag();
+      st.mode = 'none';
+      st.paintId = -1;
+      return;
+    }
 
     if (st.mode === 'paint' && ev.pointerId === st.paintId) {
       if (ev.type === 'pointercancel' && performance.now() - st.paintStart < 150) engine.cancelStroke();
@@ -388,7 +460,7 @@ export function CanvasView({ onZoom }: { onZoom: (s: number) => void }) {
     };
   }, []);
 
-  const cursorClass = !e.hasImage ? '' : panning ? 'panning' : spaceHeld ? 'can-pan' : 'painting';
+  const cursorClass = !e.hasImage ? '' : panning ? 'panning' : spaceHeld ? 'can-pan' : e.tool === 'move' ? 'move-tool' : 'painting';
 
   return (
     <div
@@ -402,7 +474,9 @@ export function CanvasView({ onZoom }: { onZoom: (s: number) => void }) {
       onPointerLeave={() => updateCursor(null)}
       onContextMenu={(ev) => ev.preventDefault()}
     >
-      <div ref={boardRef} className="board" style={{ display: e.hasImage ? 'block' : 'none' }} />
+      <div ref={boardRef} className="board" style={{ display: e.hasImage ? 'block' : 'none' }}>
+        {e.hasImage && e.tool === 'move' && <ArtBox />}
+      </div>
       <div ref={cursorRef} className={`brush-cursor ${e.tool === 'eraser' ? 'eraser' : ''}`} />
     </div>
   );
@@ -414,4 +488,39 @@ export function isTyping(ev: KeyboardEvent) {
   const tag = t.tagName;
   const typing = ['text', 'number', 'search', 'email', 'url'];
   return (tag === 'INPUT' && typing.includes((t as HTMLInputElement).type)) || tag === 'TEXTAREA' || t.isContentEditable;
+}
+
+/** Move tool overlay: outline + corner handles around the picture, and a live preview while dragging. */
+function ArtBox() {
+  const e = useEngine();
+  const live = useLivePlacement();
+  const preview = useRef<HTMLCanvasElement>(null);
+  const size = artSize();
+  const p = live ?? e.artPlacement;
+
+  useEffect(() => {
+    if (live && preview.current && !preview.current.dataset.drawn) {
+      drawArtPreview(preview.current);
+      preview.current.dataset.drawn = '1';
+    }
+  }, [live]);
+
+  // Dim the animated render while the preview is showing the new spot.
+  useEffect(() => {
+    engine.canvas.style.opacity = live ? '0.3' : '';
+    return () => {
+      engine.canvas.style.opacity = '';
+    };
+  }, [live]);
+
+  if (!p || !size) return null;
+  const style = { left: p.x, top: p.y, width: size.aw * p.scale, height: size.ah * p.scale };
+  return (
+    <div className="art-box" style={style}>
+      {live && <canvas ref={preview} className="art-box-preview" />}
+      {['nw', 'ne', 'sw', 'se'].map((c) => (
+        <span key={c} className={`art-handle ${c}`} data-corner={c} />
+      ))}
+    </div>
+  );
 }

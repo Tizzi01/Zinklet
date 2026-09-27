@@ -5,9 +5,20 @@ import { SideBar, sizeToT, tToSize } from './ui/SideBar';
 import { InksPanel } from './ui/InksPanel';
 import { ArtPanel } from './ui/ArtPanel';
 import { ExportDialog } from './ui/ExportDialog';
-import { BrushSizePreview, DropOverlay, Hint, ShortcutsDialog, StatsOverlay, Toast, ZoomBadge } from './ui/Overlays';
+import { BrushSizePreview, DropOverlay, Hint, MoveBar, ShortcutsDialog, StatsOverlay, Toast, ZoomBadge } from './ui/Overlays';
 import { HomeScreen } from './ui/HomeScreen';
-import { engine, importArtFile, loadSample, setBrushPreview, toast, useEngine, viewCommands, viewInsets } from './ui/store';
+import {
+  commitArtPlacement,
+  engine,
+  importArtFile,
+  loadSample,
+  setBrushPreview,
+  setLivePlacement,
+  toast,
+  useEngine,
+  viewCommands,
+  viewInsets,
+} from './ui/store';
 import { EFFECTS } from './engine/effects';
 
 const wide = () => window.innerWidth >= 900;
@@ -25,6 +36,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
   const [thumb, setThumb] = useState('');
   const fileInput = useRef<HTMLInputElement>(null);
+  const nudge = useRef<{ timer: number; x: number; y: number; scale: number } | null>(null);
   const screenRef = useRef<Screen>('home');
   screenRef.current = screen;
 
@@ -182,7 +194,30 @@ export default function App() {
         return;
       }
 
+      // Move tool: arrow keys nudge the art (Shift = 10px); the change is committed after a short pause.
+      if (engine.tool === 'move' && k.startsWith('arrow') && engine.artPlacement) {
+        ev.preventDefault();
+        const step = ev.shiftKey ? 10 : 1;
+        const n = nudge.current ?? { timer: 0, ...engine.artPlacement };
+        if (k === 'arrowleft') n.x -= step;
+        if (k === 'arrowright') n.x += step;
+        if (k === 'arrowup') n.y -= step;
+        if (k === 'arrowdown') n.y += step;
+        nudge.current = n;
+        setLivePlacement({ x: n.x, y: n.y, scale: n.scale });
+        clearTimeout(n.timer);
+        n.timer = window.setTimeout(() => {
+          const p = { x: n.x, y: n.y, scale: n.scale };
+          nudge.current = null;
+          void commitArtPlacement(p).finally(() => setLivePlacement(null));
+        }, 450);
+        return;
+      }
+
       switch (k) {
+        case 'v':
+          engine.setTool('move');
+          break;
         case 'b':
           engine.setTool('brush');
           break;
@@ -214,7 +249,8 @@ export default function App() {
           setShortcutsOpen(true);
           break;
         case 'escape':
-          setPanel(null);
+          if (engine.tool === 'move') engine.setTool('brush');
+          else setPanel(null);
           break;
         default:
           if (/^[1-9]$/.test(k)) {
@@ -320,6 +356,7 @@ export default function App() {
           <ZoomBadge zoom={zoom} />
           <StatsOverlay />
           <BrushSizePreview zoom={zoom} />
+          <MoveBar />
           <Hint />
         </>
       )}

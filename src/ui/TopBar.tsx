@@ -13,6 +13,7 @@ import {
   SlidersHorizontal,
   Sparkles,
   House,
+  Move,
   Moon,
   Sun,
 } from 'lucide-react';
@@ -104,6 +105,9 @@ export function TopBar({
       </div>
 
       <div className="topbar-group right">
+        <IconButton label="Move & resize art" shortcut="V" active={e.tool === 'move'} onClick={() => e.setTool('move')}>
+          <Move size={20} />
+        </IconButton>
         <IconButton label="Ink brush" shortcut="B" active={e.tool === 'brush'} onClick={() => e.setTool('brush')}>
           <Brush size={20} />
         </IconButton>

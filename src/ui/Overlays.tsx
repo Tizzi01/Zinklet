@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { ImagePlus, Sparkles, X } from 'lucide-react';
 import { EFFECT_BY_ID } from '../engine/effects';
-import { engine, useAdvanced, useBrushPreview, useEngine, useToast, viewCommands } from './store';
+import { commitArtPlacement, engine, presetPlacement, useAdvanced, useBrushPreview, useEngine, useToast, viewCommands } from './store';
 
 export function Hint() {
   const e = useEngine();
-  if (!e.hasImage || e.anyPaint || e.isStroking) return null;
+  if (!e.hasImage || e.anyPaint || e.isStroking || e.tool === 'move') return null;
   const brushName = EFFECT_BY_ID[e.inkBrush.effect].name;
   return (
     <div className="hint" onPointerDown={(ev) => ev.stopPropagation()}>
@@ -54,8 +54,10 @@ export function DropOverlay() {
 }
 
 const SHORTCUTS: [string, string][] = [
+  ['V', 'Move & resize art'],
   ['B', 'Ink brush'],
   ['E', 'Eraser'],
+  ['Arrows', 'Nudge art (Move tool; Shift = 10px)'],
   ['[  ]', 'Brush size'],
   ['Ctrl Z', 'Undo'],
   ['Ctrl Shift Z / Ctrl Y', 'Redo'],
@@ -143,6 +145,28 @@ export function BrushSizePreview({ zoom }: { zoom: number }) {
     <div className="brush-preview" aria-hidden="true">
       <div className={`brush-preview-circle ${e.brush.hard ? 'hard' : 'soft'}`} style={{ width: d, height: d, borderColor: e.overlayColor }} />
       <span className="brush-preview-label">{e.brush.size} px</span>
+    </div>
+  );
+}
+
+/** Floating bar while the Move tool is active. */
+export function MoveBar() {
+  const e = useEngine();
+  if (!e.hasImage || e.tool !== 'move') return null;
+  const place = (mode: 'center' | 'fit' | 'fill' | 'original') => {
+    const p = presetPlacement(mode);
+    if (p) void commitArtPlacement(p);
+  };
+  return (
+    <div className="move-bar" onPointerDown={(ev) => ev.stopPropagation()}>
+      <span className="move-bar-hint">Drag to move · drag a corner to resize · arrows nudge</span>
+      <div className="move-bar-actions">
+        <button type="button" onClick={() => place('center')}>Center</button>
+        <button type="button" onClick={() => place('fit')}>Fit</button>
+        <button type="button" onClick={() => place('fill')}>Fill</button>
+        <button type="button" onClick={() => place('original')}>Original size</button>
+        <button type="button" className="done" onClick={() => e.setTool('brush')}>Done</button>
+      </div>
     </div>
   );
 }

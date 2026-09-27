@@ -3,7 +3,21 @@ import { FRAG, MAX_SLOTS, VERT } from './shaders';
 import { decompose } from './lines';
 import { History, type Command } from './history';
 
-export type Tool = 'brush' | 'eraser';
+export type Tool = 'brush' | 'eraser' | 'move';
+
+/** Where the imported picture sits on the canvas: top-left corner and scale (canvas px). */
+export interface ArtPlacement {
+  x: number;
+  y: number;
+  scale: number;
+}
+
+interface ArtSnapshot {
+  image: ImageData;
+  artSide: number;
+  placement: ArtPlacement | null;
+  masks: Map<string, ImageData>;
+}
 
 /**
  * A group of painted strokes that share one effect + settings. Painting with the brush adds to the
@@ -122,6 +136,8 @@ export class Engine {
   sensitivity = 50;
   /** Long side of the artwork itself (px on the canvas). Motion is scaled to this, not the canvas. */
   private artSide = 0;
+  /** Current placement of the picture (set by whoever composed it; used by the Move tool). */
+  artPlacement: ArtPlacement | null = null;
   private imageData: ImageData | null = null;
   private layers: { src: Uint8Array; lines: Uint8Array; fill: Uint8Array } | null = null;
 
@@ -329,7 +345,12 @@ export class Engine {
   // ---------------------------------------------------------------- image
 
   /** Load (or replace) the artwork. Existing inks are kept and rescaled to fit. */
-  async setImage(source: CanvasImageSource & { width: number; height: number }, artSide?: number) {
+  async setImage(
+    source: CanvasImageSource & { width: number; height: number },
+    opts: { artSide?: number; placement?: ArtPlacement } = {},
+  ) {
+    const artSide = opts.artSide;
+    this.artPlacement = opts.placement ?? null;
     let w = (source as HTMLImageElement).naturalWidth || source.width;
     let h = (source as HTMLImageElement).naturalHeight || source.height;
     const s = Math.min(1, MAX_SIDE / Math.max(w, h));
@@ -395,8 +416,61 @@ export class Engine {
     this.emit();
   }
 
+  private snapshotArt(): ArtSnapshot {
+    const masks = new Map<string, ImageData>();
+    for (const ink of this.inks) {
+      const m = this.masks.get(ink.id)!;
+      masks.set(ink.id, ctx2d(m).getImageData(0, 0, m.width, m.height));
+    }
+    return { image: this.imageData!, artSide: this.artSide, placement: this.artPlacement, masks };
+  }
+
+  private restoreArt(snap: ArtSnapshot) {
+    this.imageData = snap.image;
+    this.artSide = snap.artSide;
+    this.artPlacement = snap.placement;
+    for (const [id, img] of snap.masks) {
+      const m = this.masks.get(id);
+      if (m) ctx2d(m).putImageData(img, 0, 0);
+    }
+    for (const ink of this.inks) this.uploadMask(ink, null);
+    void this.analyze();
+  }
+
+  /**
+   * Swap in a re-composed picture of the same canvas size (Move tool), carrying the painted ink
+   * along with it: canvas point p maps to p * k + (dx, dy). Undoable.
+   */
+  async moveArt(canvas: HTMLCanvasElement, artSide: number, placement: ArtPlacement, map: { k: number; dx: number; dy: number }) {
+    if (!this.hasImage || canvas.width !== this.width || canvas.height !== this.height) return;
+    const before = this.snapshotArt();
+    this.imageData = ctx2d(canvas).getImageData(0, 0, this.width, this.height);
+    this.artSide = artSide;
+    this.artPlacement = placement;
+    const ms = this.maskScale;
+    for (const ink of this.inks) {
+      const m = this.masks.get(ink.id)!;
+      const copy = make2d(m.width, m.height);
+      copy.getContext('2d')!.drawImage(m, 0, 0);
+      const cx = ctx2d(m);
+      cx.save();
+      cx.setTransform(1, 0, 0, 1, 0, 0);
+      cx.clearRect(0, 0, m.width, m.height);
+      cx.imageSmoothingQuality = 'high';
+      cx.setTransform(map.k, 0, 0, map.k, map.dx * ms, map.dy * ms);
+      cx.drawImage(copy, 0, 0);
+      cx.restore();
+      this.uploadMask(ink, null);
+    }
+    const after = this.snapshotArt();
+    this.history.push({ label: 'Move art', undo: () => this.restoreArt(before), redo: () => this.restoreArt(after) });
+    this.dirty = true;
+    await this.analyze();
+  }
+
   /** Clear everything back to the empty state. */
   reset() {
+    this.artPlacement = null;
     this.hasImage = false;
     this.imageData = null;
     this.layers = null;

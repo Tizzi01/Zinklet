@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { Engine, MAX_SIDE } from '../engine/Engine';
+import { Engine, MAX_SIDE, type ArtPlacement } from '../engine/Engine';
 import { makeSampleArt } from '../engine/sample';
 import { EFFECT_BY_ID, OVERLAY_COLORS } from '../engine/effects';
 
@@ -253,36 +253,95 @@ export function canvasSizeFor(artW: number, artH: number, s = canvasStore.get())
   return { w: Math.round(w * cap), h: Math.round(h * cap), capped: cap < 1, cap };
 }
 
-/** Place art onto a canvas of the chosen size and background. Returns where the art landed. */
-function composeArt(img: CanvasImageSource & { width: number; height: number }) {
-  const aw = (img as HTMLImageElement).naturalWidth || img.width;
-  const ah = (img as HTMLImageElement).naturalHeight || img.height;
-  const s = canvasStore.get();
-  const { w, h, cap } = canvasSizeFor(aw, ah, s);
-  const fitScale = Math.min(w / aw, h / ah);
-  const scale =
-    s.preset === 'match'
-      ? w / aw
-      : s.fit === 'fill'
-        ? Math.max(w / aw, h / ah)
-        : s.fit === 'fit'
-          ? fitScale
-          : // Original size: same pixels as imported (if the canvas had to be capped, the art shrinks with it).
-            Math.min(cap, fitScale);
-  const dx = (w - aw * scale) / 2;
-  const dy = (h - ah * scale) / 2;
+type ArtSource = CanvasImageSource & { width: number; height: number };
+
+/** The picture of the open project, kept un-cropped so the Move tool can reposition it. */
+interface ArtState {
+  source: ArtSource;
+  aw: number;
+  ah: number;
+  background: CanvasSettings['background'];
+  /** Canvas px per original px at "original size" (below 1 only if the canvas was capped). */
+  cap: number;
+}
+let art: ArtState | null = null;
+
+/** Picture size, for the Move tool. */
+export function artSize() {
+  return art ? { aw: art.aw, ah: art.ah } : null;
+}
+
+/** Draw the picture onto a canvas of the project size at a placement. */
+function renderArt(a: ArtState, w: number, h: number, p: ArtPlacement) {
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext('2d')!;
-  if (s.background !== 'transparent') {
-    ctx.fillStyle = s.background === 'white' ? '#ffffff' : '#000000';
+  if (a.background !== 'transparent') {
+    ctx.fillStyle = a.background === 'white' ? '#ffffff' : '#000000';
     ctx.fillRect(0, 0, w, h);
   }
   ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(img, dx, dy, aw * scale, ah * scale);
-  return { canvas, scale, dx, dy, artSide: Math.max(aw, ah) * scale };
+  ctx.drawImage(a.source, p.x, p.y, a.aw * p.scale, a.ah * p.scale);
+  return { canvas, artSide: Math.max(a.aw, a.ah) * p.scale };
 }
+
+/** Where the art goes for a placement mode, on a canvas of size w × h. */
+export function placementFor(mode: 'original' | 'fit' | 'fill', aw: number, ah: number, w: number, h: number, cap = 1): ArtPlacement {
+  const fitScale = Math.min(w / aw, h / ah);
+  const scale = mode === 'fill' ? Math.max(w / aw, h / ah) : mode === 'fit' ? fitScale : Math.min(cap, fitScale);
+  return { x: (w - aw * scale) / 2, y: (h - ah * scale) / 2, scale };
+}
+
+/** Place art onto a canvas of the chosen size and background. Returns where the art landed. */
+function composeArt(img: ArtSource) {
+  const aw = (img as HTMLImageElement).naturalWidth || img.width;
+  const ah = (img as HTMLImageElement).naturalHeight || img.height;
+  const s = canvasStore.get();
+  const { w, h, cap } = canvasSizeFor(aw, ah, s);
+  // "Original size" keeps the imported pixels (shrinking only if the canvas had to be capped).
+  const placement = s.preset === 'match' ? { x: 0, y: 0, scale: w / aw } : placementFor(s.fit, aw, ah, w, h, cap);
+  art = { source: img, aw, ah, background: s.background, cap };
+  const { canvas, artSide } = renderArt(art, w, h, placement);
+  return { canvas, artSide, placement, scale: placement.scale, dx: placement.x, dy: placement.y };
+}
+
+/** Move tool: re-place the picture (ink follows it). */
+export async function commitArtPlacement(next: ArtPlacement) {
+  const prev = engine.artPlacement;
+  if (!art || !prev || !engine.hasImage) return;
+  if (Math.abs(next.x - prev.x) < 0.01 && Math.abs(next.y - prev.y) < 0.01 && Math.abs(next.scale - prev.scale) < 1e-6) return;
+  const { canvas, artSide } = renderArt(art, engine.width, engine.height, next);
+  const k = next.scale / prev.scale;
+  await engine.moveArt(canvas, artSide, next, { k, dx: next.x - prev.x * k, dy: next.y - prev.y * k });
+}
+
+/** Move tool quick actions. */
+export function presetPlacement(mode: 'center' | 'fit' | 'fill' | 'original'): ArtPlacement | null {
+  const cur = engine.artPlacement;
+  if (!art || !cur) return null;
+  const W = engine.width;
+  const H = engine.height;
+  if (mode === 'center') return { scale: cur.scale, x: (W - art.aw * cur.scale) / 2, y: (H - art.ah * cur.scale) / 2 };
+  if (mode === 'original') return { scale: art.cap, x: (W - art.aw * art.cap) / 2, y: (H - art.ah * art.cap) / 2 };
+  return placementFor(mode, art.aw, art.ah, W, H);
+}
+
+/** Draw the picture into a small canvas for the live drag preview. */
+export function drawArtPreview(target: HTMLCanvasElement) {
+  if (!art) return;
+  const s = Math.min(1, 1024 / Math.max(art.aw, art.ah));
+  target.width = Math.max(1, Math.round(art.aw * s));
+  target.height = Math.max(1, Math.round(art.ah * s));
+  const ctx = target.getContext('2d')!;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(art.source, 0, 0, target.width, target.height);
+}
+
+// Live placement while dragging (the preview), before it's committed.
+const livePlacementStore = createStore<ArtPlacement | null>(null);
+export const useLivePlacement = livePlacementStore.use;
+export const setLivePlacement = (p: ArtPlacement | null) => livePlacementStore.set(p);
 
 /**
  * Import a picture. `new` starts a fresh project (from the home screen);
@@ -308,7 +367,7 @@ export async function importArtFile(file: File | Blob, mode: 'new' | 'replace' =
   const replacing = mode === 'replace' && engine.hasImage;
   if (!replacing) engine.reset();
   const placed = composeArt(img);
-  await engine.setImage(placed.canvas, placed.artSide);
+  await engine.setImage(placed.canvas, { artSide: placed.artSide, placement: placed.placement });
   engine.dirty = replacing;
   requestAnimationFrame(() => viewCommands.fit());
   toast(replacing ? 'Art replaced — your inks were kept' : 'Art imported');
@@ -324,7 +383,7 @@ export async function loadSample() {
     r: c.r * placed.scale,
   });
   engine.reset();
-  await engine.setImage(placed.canvas, placed.artSide);
+  await engine.setImage(placed.canvas, { artSide: placed.artSide, placement: placed.placement });
   engine.setInkBrush({ effect: 'boil', params: EFFECT_BY_ID.boil.defaults });
   engine.fillWithBrush();
   // A second, livelier boil on the stars shows off per-area control.
