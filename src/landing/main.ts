@@ -1,5 +1,6 @@
 import './landing.css';
 import { LINKS, WAITLIST } from './config';
+import { SITE_VERSION } from './version';
 
 // ------------------------------------------------------------------ helpers
 
@@ -31,6 +32,8 @@ function writeLocal(key: string, value: string) {
     /* private mode */
   }
 }
+
+for (const el of document.querySelectorAll('[data-site-version]')) el.textContent = `site v${SITE_VERSION}`;
 
 // ------------------------------------------------------------------ theme (shared with the app)
 

@@ -117,6 +117,8 @@ after painting (H pins it), line-detection slider with preview, loop length, MP4
 
 ## Releases
 
-- Versions go v0.0 → v0.1 → v0.2 … Bump the **minor** in `package.json` (`0.1.0`, `0.2.0`, …) with each
-  release pushed to GitHub, tag it (`git tag v0.1`), and push tags. The version shows in the logo menu.
+- **App** versions go v0.0 → v0.1 → v0.2 … Bump the **minor** in `package.json` (`0.1.0`, `0.2.0`, …) with each
+  app release pushed to GitHub, tag it (`git tag v0.1`), and push tags. The version shows in the app.
+- **Landing page** has its own versions: `SITE_VERSION` in `src/landing/version.ts` ("0.1", "0.2", …), tagged
+  `site-v0.1`, … Bump it when the landing page changes. It shows in the landing footer.
 - `main` on https://github.com/Tizzi01/Zinklet auto-deploys to Vercel.
