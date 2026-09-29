@@ -417,6 +417,57 @@ main {
 .demo-display[hidden] {
   display: none;
 }
+.demo-ink-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+.demo-ink-layer.on {
+  opacity: 1;
+}
+.demo-ink-layer[hidden],
+.ink-reveal[hidden] {
+  display: none;
+}
+.ink-reveal {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px 0 10px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(12, 22, 27, 0.82);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: transform 0.12s ease, background 0.15s;
+}
+.ink-reveal:hover {
+  transform: translateY(-1px);
+}
+.ink-reveal i {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--pink);
+  transition: background 0.15s;
+}
+.ink-reveal.on i {
+  background: var(--pink);
+}
 .demo-stage.painting canvas {
   cursor: crosshair;
   touch-action: none;

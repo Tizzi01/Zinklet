@@ -258,8 +258,13 @@ async function startDemo() {
       if (on && !playing) displayEl.currentTime = 0;
     }
     if (on) stage.style.aspectRatio = displayAspect;
+    if (inkBtn) inkBtn.hidden = !on;
+    if (inkLayer) inkLayer.hidden = !on;
     syncSuspend();
   };
+  // Optional pink "where the ink was painted" layer (landing-media/display-ink.webp|png) over the animation.
+  let inkLayer: HTMLImageElement | null = null;
+  let inkBtn: HTMLButtonElement | null = null;
   let displayAspect = '1 / 1';
   if (display) {
     if (display.kind === 'video') {
@@ -279,6 +284,25 @@ async function startDemo() {
     displayEl.className = 'demo-display';
     displayEl.addEventListener('pointerdown', () => toast('Tap “Paint it yourself” to try the brush'));
     stage.appendChild(displayEl);
+
+    const inkUrl = await findImage('display-ink');
+    if (inkUrl) {
+      const layer = Object.assign(document.createElement('img'), { src: inkUrl, alt: '', className: 'demo-ink-layer' });
+      const btn = Object.assign(document.createElement('button'), { type: 'button', className: 'ink-reveal' });
+      const label = (shown: boolean) => (btn.innerHTML = `<i></i>${shown ? 'Hide invisible ink' : 'Show invisible ink'}`);
+      label(false);
+      btn.setAttribute('aria-pressed', 'false');
+      btn.addEventListener('click', () => {
+        const shown = !layer.classList.contains('on');
+        layer.classList.toggle('on', shown);
+        btn.classList.toggle('on', shown);
+        btn.setAttribute('aria-pressed', String(shown));
+        label(shown);
+      });
+      stage.append(layer, btn);
+      inkLayer = layer;
+      inkBtn = btn;
+    }
     // The engine waits underneath with the paint picture, ready for "Paint it yourself".
     await show(paintArt);
     setDisplay(true);
@@ -391,6 +415,20 @@ async function startDemo() {
       else displayEl.pause();
     }
   }).observe(stage);
+}
+
+/** URL of an image in landing-media (`name`.webp|png), if it's there. */
+async function findImage(name: string): Promise<string | null> {
+  for (const ext of ['webp', 'png']) {
+    try {
+      const url = `${MEDIA}/${name}.${ext}`;
+      const res = await fetch(url, { method: 'HEAD' });
+      if (res.ok && (res.headers.get('content-type') ?? '').startsWith('image/')) return url;
+    } catch {
+      /* keep looking */
+    }
+  }
+  return null;
 }
 
 /** A demo picture from public/landing-media (`name`.png|jpg|jpeg|webp), if it's there. */
