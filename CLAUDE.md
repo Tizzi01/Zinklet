@@ -72,6 +72,9 @@ Procreate/Krita on painting; every feature must serve "import → ink → export
   motion); "Animate everything" replaces all visible inks. The eraser removes ink from every visible group.
 - **Move tool (V):** the store keeps the imported picture un-cropped plus `engine.artPlacement`; moving/resizing
   re-composes the canvas via `engine.moveArt()`, which carries every ink mask along (and re-runs line detection).
+- **The brush decides what moves:** by default (`linesOnly: false`) everything under the ink moves; no line
+  detection. "Only dark lines" (`linesOnly`) is an opt-in for dark lineart where fills should stay still, because
+  darkness-based detection fails on colored/light linework.
 - Motion amounts are scaled to the **art's** size on the canvas (`artSide`), not the canvas size. Up to 16 groups per artwork (`MAX_INKS` = `MAX_SLOTS`).
 - The ink overlay uses one color for all groups (`engine.overlayColor`, default orange, set in Artwork panel).
 

@@ -40,7 +40,7 @@ export const EFFECTS: EffectDef[] = [
     sizeUnits: [6, 60],
     speedRange: { min: 2, max: 24, step: 1 },
     hasSize: true,
-    defaults: { strength: 45, speed: 8, size: 40, linesOnly: true },
+    defaults: { strength: 45, speed: 8, size: 40, linesOnly: false },
   },
   {
     id: 'jitter',
@@ -52,7 +52,7 @@ export const EFFECTS: EffectDef[] = [
     sizeUnits: [1.5, 12],
     speedRange: { min: 4, max: 30, step: 1 },
     hasSize: true,
-    defaults: { strength: 45, speed: 15, size: 40, linesOnly: true },
+    defaults: { strength: 45, speed: 15, size: 40, linesOnly: false },
   },
   {
     id: 'wobble',

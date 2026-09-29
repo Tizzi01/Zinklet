@@ -1,6 +1,6 @@
 import { EFFECTS, EFFECT_BY_ID, MAX_INKS, type EffectId, type InkParams } from './effects';
 import { FRAG, MAX_SLOTS, VERT } from './shaders';
-import { decompose } from './lines';
+import { decompose, premultiply } from './lines';
 import { History, type Command } from './history';
 
 export type Tool = 'brush' | 'eraser' | 'move';
@@ -139,7 +139,9 @@ export class Engine {
   /** Current placement of the picture (set by whoever composed it; used by the Move tool). */
   artPlacement: ArtPlacement | null = null;
   private imageData: ImageData | null = null;
-  private layers: { src: Uint8Array; lines: Uint8Array; fill: Uint8Array } | null = null;
+  private layers: { src: Uint8Array; lines: Uint8Array | null; fill: Uint8Array | null } | null = null;
+  /** Line detection only runs when an ink uses "Only dark lines" (it's slow and optional). */
+  private linesReady = false;
 
   inks: Ink[] = [];
   /** Ink group picked in the "On your art" list for editing (null = none). */
@@ -229,6 +231,8 @@ export class Engine {
   private emit() {
     this.version++;
     this.needsRender = true;
+    // An ink just started using "Only dark lines" (or the preview is on): detect lines now.
+    if (this.layers && this.needsLines && !this.linesReady && !this.analyzing) void this.analyze();
     for (const fn of this.listeners) fn();
   }
 
@@ -315,8 +319,22 @@ export class Engine {
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, this.width, this.height, gl.RGBA, gl.UNSIGNED_BYTE, data);
     };
     put(this.srcTex, this.layers.src);
-    put(this.linesTex, this.layers.lines);
-    put(this.fillTex, this.layers.fill);
+    if (this.layers.lines) put(this.linesTex, this.layers.lines);
+    if (this.layers.fill) put(this.fillTex, this.layers.fill);
+  }
+
+  /** Show the picture right away; line detection follows only if some ink needs it. */
+  private prepareArt() {
+    if (!this.imageData) return;
+    this.layers = { src: premultiply(this.imageData.data), lines: null, fill: null };
+    this.linesReady = false;
+    this.uploadLayers();
+    if (this.needsLines) void this.analyze();
+    this.emit();
+  }
+
+  private get needsLines() {
+    return this.showLines || this.inks.some((i) => i.visible && i.params.linesOnly);
   }
 
   private reuploadAll() {
@@ -396,7 +414,7 @@ export class Engine {
     this.allocTextures();
     for (const ink of this.inks) this.uploadMask(ink, null);
     this.hasImage = true;
-    await this.analyze();
+    this.prepareArt();
   }
 
   /** Re-run line detection (after loading or when sensitivity changes). */
@@ -407,6 +425,7 @@ export class Engine {
     await new Promise((r) => setTimeout(r, 16));
     this.layers = decompose(this.imageData, this.sensitivity);
     this.uploadLayers();
+    this.linesReady = true;
     this.analyzing = false;
     this.emit();
   }
@@ -434,7 +453,7 @@ export class Engine {
       if (m) ctx2d(m).putImageData(img, 0, 0);
     }
     for (const ink of this.inks) this.uploadMask(ink, null);
-    void this.analyze();
+    this.prepareArt();
   }
 
   /**
@@ -465,7 +484,7 @@ export class Engine {
     const after = this.snapshotArt();
     this.history.push({ label: 'Move art', undo: () => this.restoreArt(before), redo: () => this.restoreArt(after) });
     this.dirty = true;
-    await this.analyze();
+    this.prepareArt();
   }
 
   /** Clear everything back to the empty state. */
@@ -1060,7 +1079,7 @@ export class Engine {
     const linesOnly = new Float32Array(MAX_SLOTS);
     const tint = new Float32Array(MAX_SLOTS * 3);
     const tintA = new Float32Array(MAX_SLOTS);
-    let key = `${opts.maskAlpha.toFixed(2)}${opts.showLines ? 1 : 0}${this.selectedInkId}${this.overlayColor}`;
+    let key = `${opts.maskAlpha.toFixed(2)}${opts.showLines ? 1 : 0}${this.linesReady ? 1 : 0}${this.selectedInkId}${this.overlayColor}`;
     const [tr, tg, tb] = hexToRgb(this.overlayColor);
     const u = t / loop;
     for (const ink of this.inks) {
@@ -1072,7 +1091,8 @@ export class Engine {
       amp[i] = def.ampUnits * unit * (p.strength / 100);
       scale[i] = (def.sizeUnits[0] + (def.sizeUnits[1] - def.sizeUnits[0]) * (p.size / 100)) * unit;
       strength[i] = p.strength / 100;
-      linesOnly[i] = p.linesOnly ? 1 : 0;
+      // Until line detection has run, "Only dark lines" inks behave like normal ones.
+      linesOnly[i] = p.linesOnly && this.linesReady ? 1 : 0;
       if (def.stepped) {
         const steps = Math.max(1, Math.round(loop * p.speed));
         const step = Math.min(steps - 1, Math.floor(u * steps));

@@ -77,7 +77,7 @@ export function ArtPanel({ onClose, onReplace }: { onClose: () => void; onReplac
             reanalyze();
           }}
         />
-        <p className="field-hint">What counts as linework for “Lines only” inks. Raise it if some lines don’t move; lower it if colors start wiggling.</p>
+        <p className="field-hint">Only used by inks with “Only dark lines” on. Raise it if some lines don’t move; lower it if colors start wiggling.</p>
         <Toggle label="Show detected lines" checked={e.showLines} onChange={(v) => e.setShowLines(v)} />
 
         <div className="divider" />

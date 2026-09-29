@@ -48,7 +48,7 @@ function SettingsFields({ effect, params, onChange }: { effect: EffectId; params
       {def.hasSize && (
         <Slider label="Wiggle size" value={params.size} min={0} max={k ? 200 : 100} onChange={(v) => onChange({ size: v })} />
       )}
-      <Toggle label="Lines only" hint="Move the linework, keep colors still" checked={params.linesOnly} onChange={(v) => onChange({ linesOnly: v })} />
+      <Toggle label="Only dark lines" hint="Off: everything you brush moves. On: only dark linework moves and colors stay still" checked={params.linesOnly} onChange={(v) => onChange({ linesOnly: v })} />
     </>
   );
 }
