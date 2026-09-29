@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Compress landing clips</title>
+    <style>body { font: 15px/1.5 system-ui; padding: 24px; background: #0c161b; color: #eef8f5; } pre { white-space: pre-wrap; }</style>
+  </head>
+  <body>
+    <h1>Compress landing clips</h1>
+    <p>Re-encodes public/landing-media/clip1-3.mp4 to 720p H.264 for the web (dev server only).</p>
+    <pre id="log"></pre>
+    <script type="module">
+      import { ALL_FORMATS, BlobSource, BufferTarget, Conversion, Input, Mp4OutputFormat, Output } from 'mediabunny';
+      const log = (t) => (document.getElementById('log').textContent += t + '\n');
+      const results = [];
+      for (const name of ['clip1.mp4', 'clip2.mp4', 'clip3.mp4']) {
+        try {
+          const blob = await (await fetch(`/landing-media/${name}?t=${Date.now()}`, { cache: 'no-store' })).blob();
+          const input = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS });
+          const output = new Output({ format: new Mp4OutputFormat({ fastStart: 'in-memory' }), target: new BufferTarget() });
+          const conversion = await Conversion.init({
+            input,
+            output,
+            video: { width: 1280, codec: 'avc', bitrate: 2_500_000, keyFrameInterval: 2, forceTranscode: true },
+            audio: { discard: true },
+          });
+          if (!conversion.isValid) throw new Error('cannot convert: ' + JSON.stringify(conversion.discardedTracks.map((d) => d.reason)));
+          conversion.onProgress = (p) => (document.title = `${name} ${Math.round(p * 100)}%`);
+          await conversion.execute();
+          const out = output.target.buffer;
+          const res = await fetch(`/__save-media?name=${name}`, { method: 'POST', body: out });
+          if (!res.ok) throw new Error('save failed');
+          const r = { name, beforeMB: +(blob.size / 1e6).toFixed(1), afterMB: +(out.byteLength / 1e6).toFixed(1) };
+          results.push(r);
+          log(`${name}: ${r.beforeMB} MB -> ${r.afterMB} MB`);
+        } catch (e) {
+          results.push({ name, error: String(e) });
+          log(`${name}: ERROR ${e}`);
+        }
+      }
+      window.__compressDone = results;
+      log('done');
+    </script>
+  </body>
+</html>

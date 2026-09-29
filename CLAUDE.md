@@ -43,6 +43,9 @@ Procreate/Krita on painting; every feature must serve "import → ink → export
 - Brand: "Mint pop" — mint `#2ee6b8` on deep teal-navy `#0c161b`, pink ink overlay `#ff5d8f`, Lexend
   ExtraBold "Z" mark (`src/ui/Logo.tsx`, `public/icon.svg`), logo PNGs in `brand/`. Never pair orange with black.
 - SVG boil filters (`feTurbulence`) are expensive: use them only on small/hero elements.
+- New/updated clips: drop them in `public/landing-media/`, then (dev server running) open
+  http://localhost:5173/tools/compress-clips.html — it re-encodes clip1-3 to 720p H.264 in place and backs
+  up originals to `media-originals/` (git-ignored). Keep landing clips around 1-2 MB each.
 
 ## Commands
 

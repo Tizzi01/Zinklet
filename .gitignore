@@ -2,3 +2,8 @@ node_modules
 dist
 *.local
 brand-lab.html
+# video editing projects kept next to the code
+*.prproj
+*.prin
+Adobe Premiere Pro Auto-Save/
+media-originals/

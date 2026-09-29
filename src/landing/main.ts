@@ -155,14 +155,35 @@ async function findClip(name: string): Promise<{ url: string; kind: 'video' | 'i
   return null;
 }
 
+// Clips only download and play while they're on screen (saves data on phones).
+const clipWatcher = new IntersectionObserver(
+  (entries) => {
+    for (const e of entries) {
+      const video = e.target.querySelector('video');
+      if (!video) continue;
+      if (e.isIntersecting) {
+        if (!video.src) video.src = video.dataset.src!;
+        void video.play().catch(() => {});
+      } else {
+        video.pause();
+      }
+    }
+  },
+  { rootMargin: '200px' },
+);
+
 for (const box of $$('[data-clip]')) {
   void findClip(box.dataset.clip!).then((clip) => {
     if (!clip) return;
-    const el =
-      clip.kind === 'video'
-        ? Object.assign(document.createElement('video'), { src: clip.url, autoplay: true, muted: true, loop: true, playsInline: true })
-        : Object.assign(document.createElement('img'), { src: clip.url, alt: '', loading: 'lazy' });
-    box.replaceChildren(el);
+    if (clip.kind === 'image') {
+      box.replaceChildren(Object.assign(document.createElement('img'), { src: clip.url, alt: '', loading: 'lazy' }));
+      return;
+    }
+    const video = Object.assign(document.createElement('video'), { muted: true, loop: true, playsInline: true, preload: 'none' });
+    video.dataset.src = clip.url;
+    video.setAttribute('aria-hidden', 'true');
+    box.replaceChildren(video);
+    clipWatcher.observe(box);
   });
 }
 
