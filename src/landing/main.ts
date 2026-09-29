@@ -37,15 +37,9 @@ for (const el of document.querySelectorAll('[data-site-version]')) el.textConten
 
 // ------------------------------------------------------------------ theme (shared with the app)
 
-const SUN = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
-const MOON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/></svg>';
-
 function syncThemeButton() {
-  const btn = $('#theme');
-  if (!btn) return;
   const dark = document.documentElement.dataset.theme !== 'light';
-  btn.innerHTML = dark ? MOON : SUN;
-  btn.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+  $('#theme')?.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
 }
 $('#theme')?.addEventListener('click', () => {
   const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
@@ -83,7 +77,7 @@ for (const a of $$<HTMLAnchorElement>('[data-link]')) {
     a.classList.add('soon');
     a.addEventListener('click', (ev) => {
       ev.preventDefault();
-      toast(key === 'discord' ? 'The Discord opens very soon — join the waitlist to get the invite.' : 'The survey opens very soon — join the waitlist to get it.');
+      toast(key === 'discord' ? 'The Discord opens very soon. Join the waitlist to get the invite.' : 'The survey opens very soon. Join the waitlist to get it.');
     });
   }
 }
@@ -113,7 +107,7 @@ for (const form of $$<HTMLFormElement>('[data-waitlist]')) {
     if (!WAITLIST.formAction || !WAITLIST.emailField) {
       // Not wired up yet: be honest instead of pretending the email was saved.
       if (note) {
-        note.textContent = 'The waitlist opens in a few days — check back soon!';
+        note.textContent = 'The waitlist opens in a few days. Check back soon!';
         note.classList.add('warn');
       }
       return;
@@ -133,22 +127,25 @@ for (const form of $$<HTMLFormElement>('[data-waitlist]')) {
       button.disabled = false;
       button.textContent = 'Try again';
       if (note) {
-        note.textContent = 'Couldn’t reach the waitlist — check your connection and try again.';
+        note.textContent = 'Couldn’t reach the waitlist. Check your connection and try again.';
         note.classList.add('warn');
       }
     }
   });
 }
 
-// ------------------------------------------------------------------ clips (drop files into /public/clips)
+// ------------------------------------------------------------------ media (drop files into /public/landing-media)
+
+const MEDIA = '/landing-media';
 
 async function findClip(name: string): Promise<{ url: string; kind: 'video' | 'image' } | null> {
   for (const ext of ['mp4', 'webm', 'gif']) {
-    const url = `/clips/${name}.${ext}`;
+    const url = `${MEDIA}/${name}.${ext}`;
     try {
       const res = await fetch(url, { method: 'HEAD' });
       const type = res.headers.get('content-type') ?? '';
       if (res.ok && (type.startsWith('video/') || type.startsWith('image/'))) {
+        // (the dev server answers unknown paths with HTML, so the content type check matters)
         return { url, kind: ext === 'gif' ? 'image' : 'video' };
       }
     } catch {
@@ -177,8 +174,13 @@ async function startDemo() {
   const loading = $('[data-demo-loading]');
   const stateLabel = $('[data-demo-state]');
   const title = $('.demo-title');
-  const [{ Engine }, { makeSampleArt }] = await Promise.all([import('../engine/Engine'), import('../engine/sample')]);
-  const art = makeSampleArt();
+  const [{ Engine }, { makeSampleArt }, { EFFECT_BY_ID }] = await Promise.all([
+    import('../engine/Engine'),
+    import('../engine/sample'),
+    import('../engine/effects'),
+  ]);
+  const art = { canvas: (await loadDemoArt()) ?? makeSampleArt().canvas };
+  stage.style.aspectRatio = `${art.canvas.width} / ${art.canvas.height}`;
 
   let engine: InstanceType<typeof Engine>;
   try {
@@ -194,8 +196,9 @@ async function startDemo() {
   engine.canvas.className = '';
   stage.prepend(engine.canvas);
   await engine.setImage(art.canvas);
-  engine.setBrush({ size: 90, hard: false, opacity: 100 });
-  engine.setInkBrush({ effect: 'boil', params: { strength: 55 } });
+  engine.setBrush({ size: Math.round(Math.max(engine.width, engine.height) * 0.055), hard: false, opacity: 100 });
+  const useInk = (effect: 'boil' | 'jitter' | 'wobble') => engine.setInkBrush({ effect, params: EFFECT_BY_ID[effect].defaults });
+  useInk('boil');
   engine.fillWithBrush();
   engine.clearMaskFlash();
   loading?.remove();
@@ -208,8 +211,10 @@ async function startDemo() {
     mode = m;
     $$('[data-demo]').forEach((b) => b.classList.toggle('on', b.dataset.demo === m || (m === 'paint' && b.dataset.demo === 'paint')));
     stage.classList.toggle('painting', m === 'paint');
+    const inkTabs = $('[data-demo-inks]');
+    if (inkTabs) inkTabs.hidden = m !== 'paint';
     if (stateLabel) stateLabel.textContent = m === 'still' ? 'Still' : m === 'paint' ? 'Painting' : 'Alive';
-    if (title) title.textContent = m === 'paint' ? 'Brush over the lines ✦' : 'Live demo';
+    if (title) title.textContent = m === 'paint' ? 'Pick an ink, brush over the lines' : 'Live demo';
   };
 
   const showHint = (text: string) => {
@@ -228,6 +233,7 @@ async function startDemo() {
         hint?.remove();
       } else if (m === 'alive') {
         if (!engine.inks.some((i) => i.painted)) {
+          useInk('boil');
           engine.fillWithBrush();
           engine.clearMaskFlash();
         }
@@ -236,9 +242,19 @@ async function startDemo() {
       } else {
         [...engine.inks].forEach((i) => engine.removeInk(i.id));
         engine.setTool('brush');
-        showHint('Drag across the drawing to paint boil ink');
+        useInk('boil');
+        $$('[data-ink]').forEach((t) => t.classList.toggle('on', t.dataset.ink === 'boil'));
+        showHint('Drag across the drawing to paint');
       }
       setMode(m);
+    }),
+  );
+
+  // The three ink tabs shown while painting (basic settings, nothing to tweak).
+  $$('[data-ink]').forEach((tab) =>
+    tab.addEventListener('click', () => {
+      useInk(tab.dataset.ink as 'boil' | 'jitter' | 'wobble');
+      $$('[data-ink]').forEach((t) => t.classList.toggle('on', t === tab));
     }),
   );
 
@@ -280,6 +296,27 @@ async function startDemo() {
     engine.suspended = !e.isIntersecting;
     if (e.isIntersecting) engine.invalidate();
   }).observe(stage);
+}
+
+/** The owner's demo picture (public/landing-media/demo.png|jpg|webp), if it's there. */
+async function loadDemoArt(): Promise<HTMLCanvasElement | null> {
+  for (const ext of ['png', 'jpg', 'jpeg', 'webp']) {
+    try {
+      const res = await fetch(`${MEDIA}/demo.${ext}`);
+      if (!res.ok || !(res.headers.get('content-type') ?? '').startsWith('image/')) continue;
+      const img = await createImageBitmap(await res.blob());
+      // Keep the demo light: at most 1400px on the long side.
+      const s = Math.min(1, 1400 / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * s);
+      c.height = Math.round(img.height * s);
+      c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
+      return c;
+    } catch {
+      /* try the next one */
+    }
+  }
+  return null;
 }
 
 void startDemo();

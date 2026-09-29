@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Zinklet — bring your art to life</title>
+    <title>Zinklet · bring your art to life</title>
     <meta name="description" content="Import a finished drawing, brush invisible ink over it and export a looping line-boil video or GIF. No redrawing frames. Join the waitlist." />
     <meta name="theme-color" content="#0c161b" />
-    <meta property="og:title" content="Zinklet — bring your art to life" />
+    <meta property="og:title" content="Zinklet · bring your art to life" />
     <meta property="og:description" content="Brush invisible ink over your finished art and it starts to boil, jitter and wobble. Export a looping video or GIF in seconds." />
     <meta property="og:image" content="/og.png" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -25,18 +25,9 @@
     </script>
   </head>
   <body>
-    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
-      <filter id="boil">
-        <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="1">
-          <animate attributeName="seed" values="1;2;3" dur="0.375s" calcMode="discrete" repeatCount="indefinite" />
-        </feTurbulence>
-        <feDisplacementMap in="SourceGraphic" scale="4" />
-      </filter>
-    </svg>
-
     <header class="nav">
       <a class="brand" href="#top" aria-label="Zinklet home">
-        <svg class="mark boil" viewBox="0 0 64 64" width="34" height="34" aria-hidden="true">
+        <svg class="mark" viewBox="0 0 64 64" width="30" height="30" aria-hidden="true">
           <rect width="64" height="64" rx="16" fill="var(--mint)" />
           <path fill="var(--mint-ink)" d="M17.22 50.00 L17.22 43.37 L36.02 18.47 L40.10 23.21 L18.56 23.21 L18.56 14.00 L46.22 14.00 L46.22 20.58 L27.51 45.53 L23.39 41.31 L46.78 41.31 L46.78 50.00Z" />
         </svg>
@@ -44,8 +35,16 @@
       </a>
       <nav class="nav-links">
         <a href="#how">How it works</a>
-        <a href="#community" data-link="discord" class="needs-link">Discord</a>
-        <button type="button" class="theme-btn" id="theme" aria-label="Switch theme"></button>
+        <a href="#community" data-link="discord">Discord</a>
+        <button type="button" class="theme-btn" id="theme" aria-label="Switch theme">
+          <!-- Ink blot split by a wavy line; toggling flips which half is inked. -->
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <g class="theme-blot">
+              <circle cx="12" cy="12" r="8.6" fill="none" stroke="currentColor" stroke-width="1.8" />
+              <path fill="currentColor" d="M12 3.4 C 8.6 6.8, 15.4 9.2, 12 12 S 8.6 17.2, 12 20.6 A 8.6 8.6 0 0 1 12 3.4 Z" />
+            </g>
+          </svg>
+        </button>
         <a href="#waitlist" class="btn btn-mint btn-sm">Join the waitlist</a>
       </nav>
     </header>
@@ -55,10 +54,10 @@
       <section class="hero">
         <div class="hero-copy reveal">
           <span class="eyebrow"><i class="dot"></i> Coming soon · free early access</span>
-          <h1>Your art,<br /><span class="alive">alive.</span></h1>
+          <h1>Bring your art<br /><span class="accent">to life.</span></h1>
           <p class="lede">
             Import a finished drawing, brush <b>invisible ink</b> over the parts you want to move, and export a looping
-            video or GIF. Hand-drawn line boil in seconds — no redrawing frames.
+            video or GIF. Hand-drawn line boil in seconds (plus a bunch of other cool effects), no redrawing frames.
           </p>
           <form class="waitlist" data-waitlist>
             <input type="email" name="email" required placeholder="you@email.com" aria-label="Email address" autocomplete="email" />
@@ -66,11 +65,14 @@
           </form>
           <p class="fine" data-waitlist-note>One email when it launches. No spam, ever.</p>
           <div class="hero-links">
-            <a class="chip needs-link" data-link="discord" href="#community">
+            <a class="chip" data-link="discord" href="#community">
               <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M19.3 5.3A16.6 16.6 0 0 0 15.2 4l-.2.4c1.5.4 2.2 1 2.9 1.6a13.7 13.7 0 0 0-11.8 0c.7-.7 1.6-1.3 3-1.6L8.8 4a16.5 16.5 0 0 0-4.1 1.3C2.1 9.2 1.4 13 1.7 16.7A16.7 16.7 0 0 0 6.8 19.3l1-1.6a10.8 10.8 0 0 1-1.6-.8l.4-.3a11.9 11.9 0 0 0 10.8 0l.4.3c-.5.3-1 .6-1.6.8l1 1.6a16.6 16.6 0 0 0 5.1-2.6c.4-4.3-.7-8.1-3-11.4ZM8.8 14.4c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Zm6.4 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Z"/></svg>
               Join the Discord
             </a>
-            <a class="chip needs-link" data-link="survey" href="#community">📝 2-minute survey</a>
+            <a class="chip" data-link="survey" href="#community">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6v3H9z" /><path d="M15 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2" /><path d="M9 13l2 2 4-4" /></svg>
+              2-minute survey
+            </a>
           </div>
         </div>
 
@@ -78,19 +80,24 @@
           <div class="demo-card">
             <div class="demo-bar">
               <span class="dots"><i></i><i></i><i></i></span>
-              <span class="demo-title">Try it — brush over the drawing</span>
+              <span class="demo-title">Live demo</span>
               <span class="demo-state" data-demo-state>Alive</span>
             </div>
             <div class="demo-stage" data-demo-stage>
               <div class="demo-loading" data-demo-loading>Warming up the ink…</div>
             </div>
+            <div class="demo-inks" data-demo-inks hidden>
+              <button type="button" class="ink-tab on" data-ink="boil">Boil</button>
+              <button type="button" class="ink-tab" data-ink="jitter">Jitter</button>
+              <button type="button" class="ink-tab" data-ink="wobble">Wobble</button>
+            </div>
             <div class="demo-tools">
-              <button type="button" class="tool on" data-demo="alive">✦ Alive</button>
+              <button type="button" class="tool on" data-demo="alive">Alive</button>
               <button type="button" class="tool" data-demo="still">Still</button>
-              <button type="button" class="tool" data-demo="paint">🖌 Paint it yourself</button>
+              <button type="button" class="tool" data-demo="paint">Paint it yourself</button>
             </div>
           </div>
-          <p class="demo-note">Not a video — it’s live. Hit “Paint it yourself” and try it.</p>
+          <p class="demo-note">Not a video, it’s live. Hit “Paint it yourself” and try it.</p>
         </div>
       </section>
 
@@ -104,6 +111,7 @@
           <li>Photoshop</li>
           <li>ibisPaint</li>
           <li>anything that saves a PNG</li>
+          <li class="soon-chip">Layered project files <em>coming soon</em></li>
         </ul>
       </section>
 
@@ -115,39 +123,23 @@
         </header>
         <div class="steps">
           <article class="step reveal">
-            <div class="media" data-clip="clip1">
-              <div class="placeholder ph-import" aria-hidden="true">
-                <div class="ph-frame"><div class="ph-art"></div></div>
-                <div class="ph-cursor"></div>
-              </div>
-            </div>
+            <div class="media" data-clip="clip1"><div class="placeholder"><span>1</span></div></div>
             <div class="step-text">
               <span class="num">1</span>
               <h3>Import your art</h3>
-              <p>Drop in a finished drawing from any app — or paste it straight from your clipboard.</p>
+              <p>Drop in a finished drawing from any app, or paste it straight from your clipboard.</p>
             </div>
           </article>
           <article class="step reveal">
-            <div class="media" data-clip="clip2">
-              <div class="placeholder ph-brush" aria-hidden="true">
-                <svg viewBox="0 0 200 120">
-                  <path class="ph-line" d="M20 80 C 50 20, 80 110, 110 60 S 160 20, 180 70" />
-                  <path class="ph-ink" d="M20 80 C 50 20, 80 110, 110 60 S 160 20, 180 70" />
-                </svg>
-              </div>
-            </div>
+            <div class="media" data-clip="clip2"><div class="placeholder"><span>2</span></div></div>
             <div class="step-text">
               <span class="num">2</span>
               <h3>Brush invisible ink</h3>
-              <p>Paint over the lines you want to move. Boil, jitter, wobble — each area can have its own.</p>
+              <p>Paint over the lines you want to move. Boil, jitter, wobble: each area can have its own.</p>
             </div>
           </article>
           <article class="step reveal">
-            <div class="media" data-clip="clip3">
-              <div class="placeholder ph-export" aria-hidden="true">
-                <span class="file">MP4</span><span class="file">GIF</span><span class="file">PNG loop</span>
-              </div>
-            </div>
+            <div class="media" data-clip="clip3"><div class="placeholder"><span>3</span></div></div>
             <div class="step-text">
               <span class="num">3</span>
               <h3>Export &amp; share</h3>
@@ -160,20 +152,20 @@
       <!-- ============================================================ features -->
       <section class="features">
         <article class="feature reveal">
-          <h3>Lines move, colors stay</h3>
+          <h3>Smart line detection</h3>
           <p>Zinklet finds your linework and wiggles only that, so fills never smear.</p>
         </article>
         <article class="feature reveal">
           <h3>Keeps your pixels</h3>
-          <p>Your art is never stretched or re-drawn. Move and resize it freely on any canvas size.</p>
+          <p>Your art is never stretched or redrawn. Move and resize it freely on any canvas size.</p>
         </article>
         <article class="feature reveal">
           <h3>Pen, touch or mouse</h3>
-          <p>Pressure-sensitive brush, Procreate-style gestures and Krita shortcuts. Feels like home.</p>
+          <p>Full pen pressure sensitivity for Apple Pencil and drawing tablets. Touch and mouse work too.</p>
         </article>
         <article class="feature reveal">
           <h3>Runs anywhere</h3>
-          <p>Right in the browser on your iPad, phone or computer. Nothing to install.</p>
+          <p>Right now it runs in your browser on iPad, phone or computer, nothing to install. Prefer apps? Dedicated apps for Android, iOS, Windows and Mac are coming soon.</p>
         </article>
       </section>
 
@@ -181,19 +173,19 @@
       <section class="community" id="community">
         <article class="cta-card reveal">
           <h2>Help shape Zinklet</h2>
-          <p>What would you make with it? What should it cost? Two minutes, and you’ll steer what gets built first.</p>
-          <a class="btn btn-ghost needs-link" data-link="survey" href="#community">Take the survey</a>
+          <p>Tell us what you’d make, which effects you want and what feels fair to pay. It takes two minutes.</p>
+          <a class="btn btn-ghost" data-link="survey" href="#community">Take the survey</a>
         </article>
         <article class="cta-card reveal">
           <h2>Join the Discord</h2>
-          <p>Sneak peeks, beta invites, and a place to share what you animate. Artists helping artists.</p>
-          <a class="btn btn-ghost needs-link" data-link="discord" href="#community">Join the Discord</a>
+          <p>Sneak peeks, beta invites, a place to share your art, and other artists to talk with.</p>
+          <a class="btn btn-ghost" data-link="discord" href="#community">Join the Discord</a>
         </article>
       </section>
 
       <!-- ============================================================ final CTA -->
       <section class="final reveal" id="waitlist">
-        <h2>Be first when it <span class="alive">drops.</span></h2>
+        <h2>Be first when it <span class="accent">drops.</span></h2>
         <p>Early-access spots go to the waitlist first.</p>
         <form class="waitlist" data-waitlist>
           <input type="email" name="email" required placeholder="you@email.com" aria-label="Email address" autocomplete="email" />
@@ -205,7 +197,6 @@
 
     <footer class="footer">
       <span>© 2026 Zinklet · <span data-site-version></span></span>
-      <a href="/app/" class="tester-link">Beta tester? Open the prototype →</a>
     </footer>
 
     <script type="module" src="/src/landing/main.ts"></script>
