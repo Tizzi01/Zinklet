@@ -13,8 +13,10 @@ import {
   engine,
   importArtFile,
   loadSample,
+  isPickingLine,
   setBrushPreview,
   setLivePlacement,
+  setPickingLine,
   toast,
   useEngine,
   viewCommands,
@@ -250,7 +252,8 @@ export default function App() {
           setShortcutsOpen(true);
           break;
         case 'escape':
-          if (engine.tool === 'move') engine.setTool('brush');
+          if (isPickingLine()) setPickingLine(false);
+          else if (engine.tool === 'move') engine.setTool('brush');
           else setPanel(null);
           break;
         default:

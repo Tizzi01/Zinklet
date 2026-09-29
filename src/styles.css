@@ -141,6 +141,9 @@ kbd {
 .stage.move-tool {
   cursor: move;
 }
+.stage.picking-color {
+  cursor: crosshair;
+}
 .stage.panning {
   cursor: grabbing;
 }
@@ -2042,4 +2045,60 @@ h3,
 .zmark {
   display: block;
   flex: none;
+}
+
+/* ------------------------------------------------------------------ lines switch + line color */
+
+.lines-switch {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--panel-3);
+  transition: background 0.15s;
+}
+.lines-switch span {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+.lines-switch.on {
+  background: var(--accent);
+}
+.lines-switch.on span {
+  transform: translateX(14px);
+}
+.line-color-btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-top: 2px;
+  border-radius: 50%;
+  border: 3px solid var(--panel-solid);
+  box-shadow: 0 0 0 1.5px var(--line);
+  color: #fff;
+  transition: transform 0.12s ease, box-shadow 0.12s;
+}
+.line-color-btn svg {
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.8));
+}
+.line-color-btn:hover {
+  transform: scale(1.08);
+}
+.line-color-btn.picking {
+  box-shadow: 0 0 0 2.5px var(--accent);
+  animation: pulse-ring 1.2s ease-in-out infinite;
+}
+@keyframes pulse-ring {
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 40%, transparent);
+  }
 }

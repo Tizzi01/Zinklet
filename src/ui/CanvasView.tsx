@@ -3,12 +3,15 @@ import type { ArtPlacement } from '../engine/Engine';
 import {
   artSize,
   commitArtPlacement,
+  isPickingLine,
+  pickLineColorAt,
   drawArtPreview,
   engine,
   setLivePlacement,
   toast,
   useEngine,
   useLivePlacement,
+  usePickingLine,
   viewCommands,
   viewInsets,
 } from './store';
@@ -178,7 +181,7 @@ export function CanvasView({ onZoom }: { onZoom: (s: number) => void }) {
   const updateCursor = (p: { x: number; y: number } | null, type?: string) => {
     const c = cursorRef.current;
     if (!c) return;
-    if (!p || type === 'touch' || !engine.hasImage || engine.tool === 'move') {
+    if (!p || type === 'touch' || !engine.hasImage || engine.tool === 'move' || isPickingLine()) {
       c.style.display = 'none';
       return;
     }
@@ -249,6 +252,11 @@ export function CanvasView({ onZoom }: { onZoom: (s: number) => void }) {
 
   const beginPaint = (ev: RPointerEvent, isPen: boolean) => {
     const st = state.current;
+    if (isPickingLine()) {
+      const p = toImage(local(ev));
+      pickLineColorAt(p.x, p.y);
+      return;
+    }
     if (engine.tool === 'move') {
       beginArtDrag(ev);
       return;
@@ -460,7 +468,18 @@ export function CanvasView({ onZoom }: { onZoom: (s: number) => void }) {
     };
   }, []);
 
-  const cursorClass = !e.hasImage ? '' : panning ? 'panning' : spaceHeld ? 'can-pan' : e.tool === 'move' ? 'move-tool' : 'painting';
+  const picking = usePickingLine();
+  const cursorClass = !e.hasImage
+    ? ''
+    : panning
+      ? 'panning'
+      : spaceHeld
+        ? 'can-pan'
+        : picking
+          ? 'picking-color'
+          : e.tool === 'move'
+            ? 'move-tool'
+            : 'painting';
 
   return (
     <div

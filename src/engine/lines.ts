@@ -20,9 +20,9 @@ interface Level {
   c: Float32Array;
 }
 
-/** sensitivity 0–100: higher counts lighter strokes as lines. */
-export function sensitivityToThreshold(sensitivity: number): number {
-  return 0.08 + 0.72 * (sensitivity / 100);
+/** sensitivity 0–100: how far from the line color a pixel may be and still count as linework. */
+export function sensitivityToTolerance(sensitivity: number): number {
+  return 0.05 + 0.5 * (sensitivity / 100);
 }
 
 export function premultiply(rgba: Uint8ClampedArray): Uint8Array {
@@ -37,21 +37,32 @@ export function premultiply(rgba: Uint8ClampedArray): Uint8Array {
   return out;
 }
 
-/** 0..1 "how much is this pixel linework", from darkness and alpha. */
-function lineCoverage(rgba: Uint8ClampedArray, n: number, threshold: number): Float32Array {
+/**
+ * 0..1 "how much is this pixel linework": closeness to the artist's line color (a perceptual
+ * "redmean" RGB distance, 0 = same color, 1 = black vs white), softened around the tolerance.
+ */
+function lineCoverage(rgba: Uint8ClampedArray, n: number, tolerance: number, line: [number, number, number]): Float32Array {
   const cov = new Float32Array(n);
-  const soft = 0.1;
-  const lo = threshold - soft;
-  const hi = threshold + soft;
+  const soft = 0.08;
+  const lo = tolerance - soft;
+  const hi = tolerance + soft;
+  const [lr, lg, lb] = line;
   for (let i = 0, j = 0; i < n; i++, j += 4) {
     const a = rgba[j + 3] / 255;
     if (a < 0.02) continue;
-    const lum = (0.2126 * rgba[j] + 0.7152 * rgba[j + 1] + 0.0722 * rgba[j + 2]) / 255;
-    let dark = (hi - lum) / (hi - lo);
-    dark = dark <= 0 ? 0 : dark >= 1 ? 1 : dark * dark * (3 - 2 * dark);
+    const r = rgba[j];
+    const g = rgba[j + 1];
+    const b = rgba[j + 2];
+    const rm = (r + lr) / 2;
+    const dr = r - lr;
+    const dg = g - lg;
+    const db = b - lb;
+    const dist = Math.sqrt((2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db) / 765;
+    let near = (hi - dist) / (hi - lo);
+    near = near <= 0 ? 0 : near >= 1 ? 1 : near * near * (3 - 2 * near);
     // Faint alpha fringes count proportionally less.
     const alphaW = a >= 0.3 ? 1 : a / 0.3;
-    cov[i] = dark * alphaW;
+    cov[i] = near * alphaW;
   }
   return cov;
 }
@@ -175,11 +186,11 @@ function pullPush(src: Uint8Array, conf: Float32Array, W: number, H: number, v0:
   }
 }
 
-export function decompose(image: ImageData, sensitivity: number): Decomposition {
+export function decompose(image: ImageData, sensitivity: number, lineColor: [number, number, number] = [0, 0, 0]): Decomposition {
   const { width: W, height: H, data } = image;
   const n = W * H;
   const src = premultiply(data);
-  const cov = lineCoverage(data, n, sensitivityToThreshold(sensitivity));
+  const cov = lineCoverage(data, n, sensitivityToTolerance(sensitivity), lineColor);
   const work = new Float32Array(n * 4);
   const conf = new Float32Array(n);
 

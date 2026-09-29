@@ -97,6 +97,11 @@ function unionRect(a: Rect | null, b: Rect): Rect {
   return { x, y, w: Math.max(a.x + a.w, b.x + b.w) - x, h: Math.max(a.y + a.h, b.y + b.h) - y };
 }
 
+function hexToRgb255(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
 function hexToRgb(hex: string): [number, number, number] {
   const n = parseInt(hex.slice(1), 16);
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
@@ -134,6 +139,8 @@ export class Engine {
   hasAlpha = false;
   analyzing = false;
   sensitivity = 50;
+  /** The artist's line color, used by line detection ("Lines" in the sidebar). */
+  lineColor = '#000000';
   /** Long side of the artwork itself (px on the canvas). Motion is scaled to this, not the canvas. */
   private artSide = 0;
   /** Current placement of the picture (set by whoever composed it; used by the Move tool). */
@@ -423,11 +430,46 @@ export class Engine {
     this.analyzing = true;
     this.emit();
     await new Promise((r) => setTimeout(r, 16));
-    this.layers = decompose(this.imageData, this.sensitivity);
+    this.layers = decompose(this.imageData, this.sensitivity, hexToRgb255(this.lineColor));
     this.uploadLayers();
     this.linesReady = true;
     this.analyzing = false;
     this.emit();
+  }
+
+  /** Set the line color and re-detect lines (if anything uses them). */
+  setLineColor(hex: string) {
+    this.lineColor = hex;
+    this.linesReady = false;
+    this.emit();
+  }
+
+  /** Color of the artwork (not the animation) at an image point, as #rrggbb. Averages a small area. */
+  sampleArtColor(x: number, y: number): string | null {
+    const img = this.imageData;
+    if (!img) return null;
+    const cx = Math.round(x);
+    const cy = Math.round(y);
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    let n = 0;
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const px = cx + dx;
+        const py = cy + dy;
+        if (px < 0 || py < 0 || px >= img.width || py >= img.height) continue;
+        const k = (py * img.width + px) * 4;
+        if (img.data[k + 3] < 40) continue;
+        r += img.data[k];
+        g += img.data[k + 1];
+        b += img.data[k + 2];
+        n++;
+      }
+    }
+    if (!n) return null;
+    const hex = (v: number) => Math.round(v / n).toString(16).padStart(2, '0');
+    return `#${hex(r)}${hex(g)}${hex(b)}`;
   }
 
   setSensitivity(v: number) {

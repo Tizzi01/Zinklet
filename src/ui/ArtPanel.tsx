@@ -59,7 +59,7 @@ export function ArtPanel({ onClose, onReplace }: { onClose: () => void; onReplac
         <div className="divider" />
 
         <Slider
-          label="Line detection"
+          label="Line color tolerance"
           value={e.sensitivity}
           min={0}
           max={100}
@@ -77,7 +77,7 @@ export function ArtPanel({ onClose, onReplace }: { onClose: () => void; onReplac
             reanalyze();
           }}
         />
-        <p className="field-hint">Only used by inks with “Only dark lines” on. Raise it if some lines don’t move; lower it if colors start wiggling.</p>
+        <p className="field-hint">How close to your line color counts as a line (for “Lines only” inks). Raise it if parts of your lines don’t move; lower it if colors start wiggling.</p>
         <Toggle label="Show detected lines" checked={e.showLines} onChange={(v) => e.setShowLines(v)} />
 
         <div className="divider" />

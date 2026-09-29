@@ -38,7 +38,7 @@ Procreate/Krita on painting; every feature must serve "import → ink → export
 
 - `/` — landing page (`index.html`, `src/landing/`): live engine demo, waitlist, Discord/survey links.
   Links and the waitlist Google Form are configured in `src/landing/config.ts` (empty = "soon").
-  Media is auto-picked up from `public/landing-media/`: `demo.png` (hero demo art) and `clip1|clip2|clip3.(mp4|webm|gif)`.
+  Media is auto-picked up from `public/landing-media/`: `demo.*` (paint demo art), optional `demo-alive.*` (Alive/Still art) and `clip1|clip2|clip3.(mp4|webm|gif)`.
 - `/app/` — the Zinklet app (`app/index.html`, `src/main.tsx`).
 - Brand: "Mint pop" — mint `#2ee6b8` on deep teal-navy `#0c161b`, pink ink overlay `#ff5d8f`, Lexend
   ExtraBold "Z" mark (`src/ui/Logo.tsx`, `public/icon.svg`), logo PNGs in `brand/`. Never pair orange with black.
@@ -76,8 +76,9 @@ Procreate/Krita on painting; every feature must serve "import → ink → export
 - **Move tool (V):** the store keeps the imported picture un-cropped plus `engine.artPlacement`; moving/resizing
   re-composes the canvas via `engine.moveArt()`, which carries every ink mask along (and re-runs line detection).
 - **The brush decides what moves:** by default (`linesOnly: false`) everything under the ink moves; no line
-  detection. "Only dark lines" (`linesOnly`) is an opt-in for dark lineart where fills should stay still, because
-  darkness-based detection fails on colored/light linework.
+  detection. The sidebar **Lines** switch turns on `linesOnly` for the brush; then only pixels close to
+  `engine.lineColor` move (picked with the eyedropper swatch under the switch; tolerance = Artwork panel slider).
+  Detection is color-distance based (`lines.ts`) and runs lazily only when something needs it.
 - Motion amounts are scaled to the **art's** size on the canvas (`artSide`), not the canvas size. Up to 16 groups per artwork (`MAX_INKS` = `MAX_SLOTS`).
 - The ink overlay uses one color for all groups (`engine.overlayColor`, default orange, set in Artwork panel).
 

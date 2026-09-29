@@ -200,7 +200,10 @@ async function startDemo() {
     import('../engine/sample'),
     import('../engine/effects'),
   ]);
-  const art = { canvas: (await loadDemoArt()) ?? makeSampleArt().canvas };
+  // "Paint it yourself" uses demo.*; Alive/Still can show a different picture (demo-alive.*).
+  const paintArt = (await loadDemoArt('demo')) ?? makeSampleArt().canvas;
+  const aliveArt = (await loadDemoArt('demo-alive')) ?? paintArt;
+  const art = { canvas: aliveArt };
   stage.style.aspectRatio = `${art.canvas.width} / ${art.canvas.height}`;
 
   let engine: InstanceType<typeof Engine>;
@@ -216,12 +219,26 @@ async function startDemo() {
 
   engine.canvas.className = '';
   stage.prepend(engine.canvas);
-  await engine.setImage(art.canvas);
-  engine.setBrush({ size: Math.round(Math.max(engine.width, engine.height) * 0.055), hard: false, opacity: 100 });
   const useInk = (effect: 'boil' | 'jitter' | 'wobble') => engine.setInkBrush({ effect, params: EFFECT_BY_ID[effect].defaults });
-  useInk('boil');
-  engine.fillWithBrush();
-  engine.clearMaskFlash();
+
+  let shown: HTMLCanvasElement | null = null;
+  /** Put a picture in the demo (fresh, no ink). */
+  const show = async (canvas: HTMLCanvasElement) => {
+    if (shown === canvas) return;
+    shown = canvas;
+    engine.reset();
+    stage.style.aspectRatio = `${canvas.width} / ${canvas.height}`;
+    await engine.setImage(canvas);
+    engine.setBrush({ size: Math.round(Math.max(engine.width, engine.height) * 0.055), hard: false, opacity: 100 });
+  };
+  const animateAll = () => {
+    useInk('boil');
+    engine.fillWithBrush();
+    engine.clearMaskFlash();
+  };
+
+  await show(aliveArt);
+  animateAll();
   loading?.remove();
 
   type Mode = 'alive' | 'still' | 'paint';
@@ -247,27 +264,27 @@ async function startDemo() {
   };
 
   $$('[data-demo]').forEach((btn) =>
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const m = btn.dataset.demo as Mode;
-      if (m === 'still') {
-        engine.inks.forEach((i) => engine.updateInk(i.id, { visible: false }));
+      setMode(m);
+      if (m === 'still' || m === 'alive') {
         hint?.remove();
-      } else if (m === 'alive') {
-        if (!engine.inks.some((i) => i.painted)) {
-          useInk('boil');
-          engine.fillWithBrush();
-          engine.clearMaskFlash();
+        if (shown !== aliveArt) {
+          // Coming back from painting on the other picture: show the Alive picture again.
+          await show(aliveArt);
+          animateAll();
+        } else if (!engine.inks.some((i) => i.painted)) {
+          animateAll();
         }
-        engine.inks.forEach((i) => engine.updateInk(i.id, { visible: true }));
-        hint?.remove();
+        engine.inks.forEach((i) => engine.updateInk(i.id, { visible: m === 'alive' }));
       } else {
+        await show(paintArt);
         [...engine.inks].forEach((i) => engine.removeInk(i.id));
         engine.setTool('brush');
         useInk('boil');
         $$('[data-ink]').forEach((t) => t.classList.toggle('on', t.dataset.ink === 'boil'));
         showHint('Drag across the drawing to paint');
       }
-      setMode(m);
     }),
   );
 
@@ -319,11 +336,11 @@ async function startDemo() {
   }).observe(stage);
 }
 
-/** The owner's demo picture (public/landing-media/demo.png|jpg|webp), if it's there. */
-async function loadDemoArt(): Promise<HTMLCanvasElement | null> {
+/** A demo picture from public/landing-media (`name`.png|jpg|jpeg|webp), if it's there. */
+async function loadDemoArt(name: string): Promise<HTMLCanvasElement | null> {
   for (const ext of ['png', 'jpg', 'jpeg', 'webp']) {
     try {
-      const res = await fetch(`${MEDIA}/demo.${ext}`);
+      const res = await fetch(`${MEDIA}/${name}.${ext}`);
       if (!res.ok || !(res.headers.get('content-type') ?? '').startsWith('image/')) continue;
       const img = await createImageBitmap(await res.blob());
       // Keep the demo light: at most 1400px on the long side.

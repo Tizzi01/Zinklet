@@ -195,6 +195,31 @@ export function setBrushPreview(on: boolean, autoHideMs = 0) {
   if (on && autoHideMs) brushPreviewTimer = window.setTimeout(() => brushPreviewStore.set(false), autoHideMs);
 }
 
+// ------------------------------------------------------------------ line color picker
+// While on, tapping the art picks the line color instead of painting.
+
+const pickingLineStore = createStore(false);
+export const usePickingLine = pickingLineStore.use;
+export const isPickingLine = () => pickingLineStore.get();
+export const setPickingLine = (on: boolean) => pickingLineStore.set(on);
+
+let linePreviewTimer = 0;
+/** Pick the line color at an image point, then briefly show what got detected. */
+export function pickLineColorAt(x: number, y: number) {
+  setPickingLine(false);
+  const hex = engine.sampleArtColor(x, y);
+  if (!hex) {
+    toast('That spot is empty. Tap right on a line.');
+    return;
+  }
+  engine.setLineColor(hex);
+  const wasShowing = engine.showLines;
+  engine.setShowLines(true);
+  clearTimeout(linePreviewTimer);
+  if (!wasShowing) linePreviewTimer = window.setTimeout(() => engine.setShowLines(false), 1600);
+  toast('Line color picked. Highlighted pixels are what will move.', 2400);
+}
+
 // ------------------------------------------------------------------ canvas settings (home screen)
 
 export type CanvasPreset = 'match' | 'square' | 'portrait' | 'story' | 'wide' | 'custom';
