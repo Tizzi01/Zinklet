@@ -237,8 +237,55 @@ async function startDemo() {
     engine.clearMaskFlash();
   };
 
-  await show(aliveArt);
-  animateAll();
+  // A ready-made animation (landing-media/display.mp4|webm|gif, made in Zinklet) takes over Alive/Still.
+  const display = await findClip('display');
+  let displayEl: HTMLVideoElement | HTMLImageElement | null = null;
+  let displayOn = false;
+  let onScreen = true;
+  const syncSuspend = () => {
+    engine.suspended = !onScreen || displayOn;
+    if (!engine.suspended) engine.invalidate();
+  };
+  const setDisplay = (on: boolean, playing = true) => {
+    if (!displayEl) return;
+    displayOn = on;
+    displayEl.hidden = !on;
+    if (displayEl instanceof HTMLVideoElement) {
+      // autoplay as a backup: some browsers ignore play() before the video is ready.
+      displayEl.autoplay = on && playing;
+      if (on && playing && onScreen) void displayEl.play().catch(() => {});
+      else displayEl.pause();
+      if (on && !playing) displayEl.currentTime = 0;
+    }
+    if (on) stage.style.aspectRatio = displayAspect;
+    syncSuspend();
+  };
+  let displayAspect = '1 / 1';
+  if (display) {
+    if (display.kind === 'video') {
+      const v = Object.assign(document.createElement('video'), { src: display.url, muted: true, loop: true, playsInline: true, preload: 'auto' });
+      await new Promise((res) => {
+        v.onloadedmetadata = res;
+        v.onerror = res;
+      });
+      if (v.videoWidth) displayAspect = `${v.videoWidth} / ${v.videoHeight}`;
+      displayEl = v;
+    } else {
+      const img = Object.assign(document.createElement('img'), { src: display.url, alt: '' });
+      await img.decode().catch(() => {});
+      if (img.naturalWidth) displayAspect = `${img.naturalWidth} / ${img.naturalHeight}`;
+      displayEl = img;
+    }
+    displayEl.className = 'demo-display';
+    displayEl.addEventListener('pointerdown', () => toast('Tap “Paint it yourself” to try the brush'));
+    stage.appendChild(displayEl);
+    // The engine waits underneath with the paint picture, ready for "Paint it yourself".
+    await show(paintArt);
+    setDisplay(true);
+  } else {
+    await show(aliveArt);
+    animateAll();
+  }
   loading?.remove();
 
   type Mode = 'alive' | 'still' | 'paint';
@@ -267,8 +314,13 @@ async function startDemo() {
     btn.addEventListener('click', async () => {
       const m = btn.dataset.demo as Mode;
       setMode(m);
-      if (m === 'still' || m === 'alive') {
+      if ((m === 'still' || m === 'alive') && displayEl && (m === 'alive' || displayEl instanceof HTMLVideoElement)) {
+        // The ready-made animation: playing for Alive, frozen on its first frame for Still.
         hint?.remove();
+        setDisplay(true, m === 'alive');
+      } else if (m === 'still' || m === 'alive') {
+        hint?.remove();
+        setDisplay(false);
         if (shown !== aliveArt) {
           // Coming back from painting on the other picture: show the Alive picture again.
           await show(aliveArt);
@@ -278,6 +330,7 @@ async function startDemo() {
         }
         engine.inks.forEach((i) => engine.updateInk(i.id, { visible: m === 'alive' }));
       } else {
+        setDisplay(false);
         await show(paintArt);
         [...engine.inks].forEach((i) => engine.removeInk(i.id));
         engine.setTool('brush');
@@ -331,8 +384,12 @@ async function startDemo() {
 
   // Only animate while the demo is on screen (battery!).
   new IntersectionObserver(([e]) => {
-    engine.suspended = !e.isIntersecting;
-    if (e.isIntersecting) engine.invalidate();
+    onScreen = e.isIntersecting;
+    syncSuspend();
+    if (displayEl instanceof HTMLVideoElement && displayOn && mode === 'alive') {
+      if (onScreen) void displayEl.play().catch(() => {});
+      else displayEl.pause();
+    }
   }).observe(stage);
 }
 

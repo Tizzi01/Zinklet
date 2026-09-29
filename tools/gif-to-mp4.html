@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>GIF to MP4</title>
+    <style>body { font: 15px/1.5 system-ui; padding: 24px; background: #0c161b; color: #eef8f5; } pre { white-space: pre-wrap; }</style>
+  </head>
+  <body>
+    <h1>GIF → MP4 (landing media)</h1>
+    <p>Usage: <code>/tools/gif-to-mp4.html?src=display.gif&amp;out=display.mp4&amp;size=1024</code> (dev server only).</p>
+    <pre id="log"></pre>
+    <script type="module">
+      import { BufferTarget, CanvasSource, Mp4OutputFormat, Output } from 'mediabunny';
+      const log = (t) => (document.getElementById('log').textContent += t + '\n');
+      const q = new URLSearchParams(location.search);
+      const src = q.get('src') ?? 'display.gif';
+      const out = q.get('out') ?? src.replace(/\.gif$/i, '.mp4');
+      const maxSide = Number(q.get('size') ?? 1024);
+      try {
+        const data = await (await fetch(`/landing-media/${src}`, { cache: 'no-store' })).arrayBuffer();
+        const decoder = new ImageDecoder({ data, type: 'image/gif' });
+        await decoder.tracks.ready;
+        const frames = decoder.tracks.selectedTrack.frameCount;
+        const first = await decoder.decode({ frameIndex: 0 });
+        const s = Math.min(1, maxSide / Math.max(first.image.displayWidth, first.image.displayHeight));
+        const w = Math.round((first.image.displayWidth * s) / 2) * 2;
+        const h = Math.round((first.image.displayHeight * s) / 2) * 2;
+        const canvas = new OffscreenCanvas(w, h);
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingQuality = 'high';
+        const output = new Output({ format: new Mp4OutputFormat({ fastStart: 'in-memory' }), target: new BufferTarget() });
+        const video = new CanvasSource(canvas, { codec: 'avc', bitrate: 2_000_000, keyFrameInterval: 1 });
+        output.addVideoTrack(video);
+        await output.start();
+        let t = 0;
+        for (let i = 0; i < frames; i++) {
+          const { image } = await decoder.decode({ frameIndex: i });
+          const dur = (image.duration ?? 40000) / 1e6; // microseconds -> seconds
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(image, 0, 0, w, h);
+          image.close();
+          await video.add(t, dur);
+          t += dur;
+        }
+        await output.finalize();
+        const buf = output.target.buffer;
+        const res = await fetch(`/__save-media?name=${encodeURIComponent(out)}`, { method: 'POST', body: buf });
+        if (!res.ok) throw new Error('save failed');
+        const result = { frames, w, h, seconds: +t.toFixed(2), mb: +(buf.byteLength / 1e6).toFixed(2), gifMb: +(data.byteLength / 1e6).toFixed(1) };
+        log(JSON.stringify(result));
+        window.__gifDone = result;
+      } catch (e) {
+        log('ERROR ' + e);
+        window.__gifDone = { error: String(e) };
+      }
+    </script>
+  </body>
+</html>
