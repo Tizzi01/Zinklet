@@ -162,7 +162,7 @@ export const useTheme = themeStore.use;
 
 export function setTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#f4f2ee' : '#16161a');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#f3f7f6' : '#0c161b');
   writeLocal(THEME_KEY, theme);
   themeStore.set(theme);
 }

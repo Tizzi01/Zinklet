@@ -34,9 +34,19 @@ Procreate/Krita on painting; every feature must serve "import → ink → export
 - Icons: `lucide-react`.
 - Ships first as a web app / PWA. Later wrapped with Tauri (Win/Mac) and Capacitor (iOS/Android).
 
+## Site layout
+
+- `/` — landing page (`index.html`, `src/landing/`): live engine demo, waitlist, Discord/survey links.
+  Links and the waitlist Google Form are configured in `src/landing/config.ts` (empty = "soon").
+  Step clips are auto-picked up from `public/clips/clip1|clip2|clip3.(mp4|webm|gif)`.
+- `/app/` — the Zinklet app (`app/index.html`, `src/main.tsx`).
+- Brand: "Mint pop" — mint `#2ee6b8` on deep teal-navy `#0c161b`, pink ink overlay `#ff5d8f`, Lexend
+  ExtraBold "Z" mark (`src/ui/Logo.tsx`, `public/icon.svg`), logo PNGs in `brand/`. Never pair orange with black.
+- SVG boil filters (`feTurbulence`) are expensive: use them only on small/hero elements.
+
 ## Commands
 
-- `npm run dev` — dev server on http://localhost:5173
+- `npm run dev` — dev server: landing http://localhost:5173, app http://localhost:5173/app/
 - `npm run build` — typecheck + production build
 - `npm run typecheck` — `tsc --noEmit`
 

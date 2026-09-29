@@ -20,6 +20,7 @@ import {
 import { IconButton } from './controls';
 import { EFFECT_BY_ID } from '../engine/effects';
 import { EffectGlyph } from './EffectGlyph';
+import { ZMark } from './Logo';
 import { setTheme, useEngine, useTheme } from './store';
 
 export type PanelId = 'inks' | 'art' | null;
@@ -62,9 +63,7 @@ export function TopBar({
       <div className="topbar-group">
         <div className="menu-anchor" ref={menuRef}>
           <button type="button" className="logo" onClick={() => setMenuOpen((o) => !o)} aria-haspopup="menu" aria-expanded={menuOpen}>
-            <svg viewBox="0 0 64 64" width="22" height="22" aria-hidden="true">
-              <path d="M14 18 C24 14 36 22 48 17 L20 46 C30 42 40 50 50 45" fill="none" stroke="currentColor" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <ZMark size={26} />
             <span>Zinklet</span>
           </button>
           {menuOpen && (

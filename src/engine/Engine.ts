@@ -148,7 +148,7 @@ export class Engine {
   inkBrush: { effect: EffectId; params: InkParams } = { effect: 'boil', params: { ...EFFECT_BY_ID.boil.defaults } };
   private brushParams = Object.fromEntries(EFFECTS.map((e) => [e.id, { ...e.defaults }])) as Record<EffectId, InkParams>;
   /** Color of the ink overlay shown while painting. */
-  overlayColor = '#ff8a3d';
+  overlayColor = '#ff5d8f';
   private masks = new Map<string, HTMLCanvasElement>();
 
   tool: Tool = 'brush';
@@ -747,6 +747,12 @@ export class Engine {
   /** Briefly reveal where the ink is (while painting, selecting or changing an ink). */
   flashMask(ms = 1400) {
     this.maskFlashUntil = Math.max(this.maskFlashUntil, performance.now() + ms);
+    this.needsRender = true;
+  }
+
+  /** Hide the ink overlay right away (e.g. a demo that shouldn't flash pink). */
+  clearMaskFlash() {
+    this.maskFlashUntil = 0;
     this.needsRender = true;
   }
 

@@ -101,8 +101,8 @@ export const MAX_INKS = 16;
 
 /** Choices for the ink overlay color (shown while painting). */
 export const OVERLAY_COLORS = [
-  { id: 'orange', label: 'Orange', hex: '#ff8a3d' },
-  { id: 'blue', label: 'Light blue', hex: '#4cc9ff' },
   { id: 'pink', label: 'Pink', hex: '#ff5d8f' },
-  { id: 'green', label: 'Green', hex: '#4ee07a' },
+  { id: 'blue', label: 'Light blue', hex: '#4cc9ff' },
+  { id: 'orange', label: 'Orange', hex: '#ff8a3d' },
+  { id: 'violet', label: 'Violet', hex: '#a78bfa' },
 ];

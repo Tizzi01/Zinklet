@@ -7,6 +7,7 @@ import { ArtPanel } from './ui/ArtPanel';
 import { ExportDialog } from './ui/ExportDialog';
 import { BrushSizePreview, DropOverlay, Hint, MoveBar, ShortcutsDialog, StatsOverlay, Toast, ZoomBadge } from './ui/Overlays';
 import { HomeScreen } from './ui/HomeScreen';
+import { BoilFilterDefs } from './ui/Logo';
 import {
   commitArtPlacement,
   engine,
@@ -327,6 +328,7 @@ export default function App() {
 
   return (
     <div className={`app ${uiHidden ? 'ui-hidden' : ''} ${panel ? 'panel-open' : ''}`}>
+      <BoilFilterDefs />
       <CanvasView onZoom={setZoom} />
 
       {screen === 'home' && (

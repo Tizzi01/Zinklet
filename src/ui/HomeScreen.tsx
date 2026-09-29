@@ -1,5 +1,6 @@
 import { ArrowLeftRight, ArrowRight, Image as ImageIcon, ImagePlus, Moon, Sparkles, Sun } from 'lucide-react';
 import { Segmented } from './controls';
+import { ZMark } from './Logo';
 import {
   CANVAS_PRESETS,
   canvasSizeFor,
@@ -26,20 +27,6 @@ export function ThemeToggle({ className = '' }: { className?: string }) {
         {theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
       </span>
     </button>
-  );
-}
-
-/** Line-boil filter for headings and hovered icons: the same effect the app sells, in CSS. */
-function BoilFilters() {
-  return (
-    <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
-      <filter id="boil-filter">
-        <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="2" seed="1">
-          <animate attributeName="seed" values="1;2;3" dur="0.375s" calcMode="discrete" repeatCount="indefinite" />
-        </feTurbulence>
-        <feDisplacementMap in="SourceGraphic" scale="3.5" />
-      </filter>
-    </svg>
   );
 }
 
@@ -169,12 +156,9 @@ export function HomeScreen({
 
   return (
     <div className="home">
-      <BoilFilters />
       <header className="home-top">
         <div className="home-logo">
-          <svg viewBox="0 0 64 64" width="24" height="24" aria-hidden="true">
-            <path d="M14 18 C24 14 36 22 48 17 L20 46 C30 42 40 50 50 45" fill="none" stroke="currentColor" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <ZMark size={30} boil />
           <span>Zinklet</span>
           <em className="home-version">v{__APP_VERSION__} (prototype)</em>
         </div>

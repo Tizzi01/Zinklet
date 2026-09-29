@@ -1,31 +1,32 @@
 :root {
-  --bg: #111114;
-  --stage: #1a1a1f;
-  --panel: rgba(30, 30, 36, 0.92);
-  --panel-solid: #1e1e24;
-  --panel-2: #2a2a32;
-  --panel-3: #34343e;
+  --bg: #0c161b;
+  --stage: #13222a;
+  --panel: rgba(22, 37, 45, 0.92);
+  --panel-solid: #16252d;
+  --panel-2: #1f323b;
+  --panel-3: #2a3f49;
   --line: rgba(255, 255, 255, 0.08);
-  --text: #f1f1f4;
-  --muted: #9a9aa8;
-  --accent: #ffd23f;
-  --accent-ink: #1a1500;
+  --text: #eef8f5;
+  --muted: #93aca7;
+  --accent: #2ee6b8;
+  --accent-ink: #062a21;
   --danger: #ff5d6c;
   --radius: 14px;
   --shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
-  --accent-text: #ffd23f;
-  --text-2: #c4c4cf;
-  --panel-sel: #2d2d36;
-  --stage-hi: #202027;
-  --stage-lo: #141418;
+  --accent-text: #2ee6b8;
+  --font-display: 'Lexend', ui-rounded, 'SF Pro Rounded', 'Nunito', system-ui, sans-serif;
+  --text-2: #bcd3ce;
+  --panel-sel: #1c3a3c;
+  --stage-hi: #183039;
+  --stage-lo: #0d1a20;
   --board-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
   --vfill-a: rgba(255, 255, 255, 0.35);
   --vfill-b: rgba(255, 255, 255, 0.18);
   --backdrop: rgba(0, 0, 0, 0.5);
   --overlay: rgba(17, 17, 20, 0.8);
   --danger-text: #ffb3bb;
-  --card: #1b1b21;
-  --card-hover: #22222a;
+  --card: #14232b;
+  --card-hover: #192c35;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
@@ -40,21 +41,21 @@
 
 :root[data-theme='light'] {
   color-scheme: light;
-  --bg: #f4f2ee;
-  --stage: #e9e6e0;
-  --stage-hi: #f1eee9;
-  --stage-lo: #dedad3;
+  --bg: #f3f7f6;
+  --stage: #e5edeb;
+  --stage-hi: #eef4f2;
+  --stage-lo: #d8e3e0;
   --panel: rgba(255, 255, 255, 0.92);
   --panel-solid: #ffffff;
-  --panel-2: #f1efeb;
-  --panel-3: #e3e0da;
-  --panel-sel: #fff8df;
+  --panel-2: #edf3f1;
+  --panel-3: #dce6e3;
+  --panel-sel: #e3faf3;
   --line: rgba(0, 0, 0, 0.09);
-  --text: #1f1d24;
-  --text-2: #4a4752;
-  --muted: #6f6c78;
-  --accent: #ffd23f;
-  --accent-text: #9a7300;
+  --text: #15242a;
+  --text-2: #3f5258;
+  --muted: #647a7f;
+  --accent: #2ee6b8;
+  --accent-text: #0b8a6c;
   --shadow: 0 10px 34px rgba(40, 30, 10, 0.14);
   --board-shadow: 0 16px 44px rgba(40, 30, 10, 0.2);
   --vfill-a: rgba(0, 0, 0, 0.28);
@@ -63,7 +64,7 @@
   --overlay: rgba(244, 242, 238, 0.85);
   --danger-text: #b3261e;
   --card: #ffffff;
-  --card-hover: #fffdf7;
+  --card-hover: #f8fffd;
 }
 
 * {
@@ -573,7 +574,7 @@ kbd {
   border: 1px solid transparent;
 }
 .ink-list li.selected {
-  border-color: rgba(255, 210, 63, 0.55);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
   background: var(--panel-sel);
 }
 
@@ -707,7 +708,7 @@ kbd {
   grid-column: 1 / -1;
   justify-content: center;
   height: 36px;
-  background: rgba(255, 210, 63, 0.14);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
   color: var(--accent-text);
 }
 .ink-actions button {
@@ -2020,4 +2021,25 @@ kbd {
 .move-bar-actions .done {
   background: var(--accent);
   color: var(--accent-ink);
+}
+
+/* ------------------------------------------------------------------ brand type */
+
+h1,
+h2,
+h3,
+.logo span,
+.home-logo span,
+.step,
+.empty-card h1 {
+  font-family: var(--font-display);
+  letter-spacing: -0.3px;
+}
+.home-hero h1 {
+  letter-spacing: -1.2px;
+}
+
+.zmark {
+  display: block;
+  flex: none;
 }
