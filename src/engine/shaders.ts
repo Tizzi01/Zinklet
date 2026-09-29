@@ -140,8 +140,6 @@ void main() {
     } else {
       dWhole += d * m;
     }
-    tint += uTint[i] * m * uTintA[i];
-    tintA = max(tintA, m * uTintA[i]);
   }
 
   vec2 uvW = (p - dWhole) / uSize;
@@ -158,6 +156,18 @@ void main() {
   if (uShowLines > 0.5) {
     float la = texture(uLines, vUv).a;
     col = mix(col, vec4(1.0, 0.18, 0.55, 1.0), la * 0.85);
+  }
+  if (uShowMask > 0.001) {
+    // The ink overlay moves with the art: read each mask where this pixel's content came from.
+    vec2 uvInk = (p - dWhole - dLines) / uSize;
+    tint = vec3(0.0);
+    tintA = 0.0;
+    for (int i = 0; i < ${MAX_SLOTS}; i++) {
+      if (uType[i] < 0) continue;
+      float m = texture(uMasks, vec3(uvInk, float(i))).r;
+      tint += uTint[i] * m * uTintA[i];
+      tintA = max(tintA, m * uTintA[i]);
+    }
   }
   if (uShowMask > 0.001 && tintA > 0.001) {
     vec3 tc = tint / max(tintA, 1e-4);

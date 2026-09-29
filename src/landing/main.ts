@@ -240,6 +240,7 @@ async function startDemo() {
   // A ready-made animation (landing-media/display.mp4|webm|gif, made in Zinklet) takes over Alive/Still.
   const display = await findClip('display');
   let displayEl: HTMLVideoElement | HTMLImageElement | null = null;
+  let displayAspect = '1 / 1';
   let displayOn = false;
   let onScreen = true;
   const syncSuspend = () => {
@@ -258,14 +259,17 @@ async function startDemo() {
       if (on && !playing) displayEl.currentTime = 0;
     }
     if (on) stage.style.aspectRatio = displayAspect;
-    if (inkBtn) inkBtn.hidden = !on;
-    if (inkLayer) inkLayer.hidden = !on;
     syncSuspend();
   };
-  // Optional pink "where the ink was painted" layer (landing-media/display-ink.webp|png) over the animation.
+
+  // "Show invisible ink": landing-media/display-ink.webp is the pink overlay exactly as painted.
+  // Its alpha also gives back the painted areas, so Alive can run the real engine with that ink
+  // (the pink then boils along with the lines); Still shows the overlay over the frozen frame.
   let inkLayer: HTMLImageElement | null = null;
   let inkBtn: HTMLButtonElement | null = null;
-  let displayAspect = '1 / 1';
+  let inkMask: HTMLCanvasElement | null = null;
+  let inkShown = false;
+
   if (display) {
     if (display.kind === 'video') {
       const v = Object.assign(document.createElement('video'), { src: display.url, muted: true, loop: true, playsInline: true, preload: 'auto' });
@@ -276,8 +280,8 @@ async function startDemo() {
       if (v.videoWidth) displayAspect = `${v.videoWidth} / ${v.videoHeight}`;
       displayEl = v;
     } else {
-      const img = Object.assign(document.createElement('img'), { src: display.url, alt: '' });
-      await img.decode().catch(() => {});
+      const img = Object.assign(document.createElement('img'), { alt: '' });
+      await imageLoaded(img, display.url);
       if (img.naturalWidth) displayAspect = `${img.naturalWidth} / ${img.naturalHeight}`;
       displayEl = img;
     }
@@ -287,38 +291,96 @@ async function startDemo() {
 
     const inkUrl = await findImage('display-ink');
     if (inkUrl) {
-      const layer = Object.assign(document.createElement('img'), { src: inkUrl, alt: '', className: 'demo-ink-layer' });
-      const btn = Object.assign(document.createElement('button'), { type: 'button', className: 'ink-reveal' });
-      const label = (shown: boolean) => (btn.innerHTML = `<i></i>${shown ? 'Hide invisible ink' : 'Show invisible ink'}`);
-      label(false);
-      btn.setAttribute('aria-pressed', 'false');
-      btn.addEventListener('click', () => {
-        const shown = !layer.classList.contains('on');
-        layer.classList.toggle('on', shown);
-        btn.classList.toggle('on', shown);
-        btn.setAttribute('aria-pressed', String(shown));
-        label(shown);
+      inkLayer = Object.assign(document.createElement('img'), { alt: '', className: 'demo-ink-layer' });
+      await imageLoaded(inkLayer, inkUrl);
+      inkMask = inkMaskFrom(inkLayer);
+      inkBtn = Object.assign(document.createElement('button'), { type: 'button', className: 'ink-reveal' });
+      inkBtn.addEventListener('click', () => {
+        inkShown = !inkShown;
+        void render();
       });
-      stage.append(layer, btn);
-      inkLayer = layer;
-      inkBtn = btn;
+      stage.append(inkLayer, inkBtn);
     }
-    // The engine waits underneath with the paint picture, ready for "Paint it yourself".
-    await show(paintArt);
-    setDisplay(true);
-  } else {
-    await show(aliveArt);
-    animateAll();
   }
-  loading?.remove();
 
   type Mode = 'alive' | 'still' | 'paint';
   let mode: Mode = 'alive';
   let hint: HTMLElement | null = null;
+  let renderToken = 0;
+
+  /** Put the demo into the state for the current mode + "Show invisible ink". */
+  const render = async () => {
+    const token = ++renderToken;
+    const hasInk = !!(displayEl && inkMask);
+    if (inkBtn) {
+      inkBtn.hidden = mode === 'paint' || !hasInk;
+      inkBtn.classList.toggle('on', inkShown);
+      inkBtn.setAttribute('aria-pressed', String(inkShown));
+      inkBtn.innerHTML = `<i></i>${inkShown ? 'Hide invisible ink' : 'Show invisible ink'}`;
+    }
+    if (inkLayer) {
+      inkLayer.hidden = !(mode === 'still' && inkShown && displayEl instanceof HTMLVideoElement);
+      inkLayer.classList.toggle('on', !inkLayer.hidden);
+    }
+
+    if (mode === 'paint') {
+      setDisplay(false);
+      engine.setShowMask(false);
+      await show(paintArt);
+      if (token !== renderToken) return;
+      [...engine.inks].forEach((i) => engine.removeInk(i.id));
+      engine.setTool('brush');
+      useInk('boil');
+      $$('[data-ink]').forEach((t) => t.classList.toggle('on', t.dataset.ink === 'boil'));
+      showHint('Drag across the drawing to paint');
+      return;
+    }
+    hint?.remove();
+
+    if (displayEl && mode === 'alive' && inkShown && inkMask) {
+      // The real engine with the artist's exact ink, overlay on: the pink moves with the art.
+      setDisplay(false);
+      await show(paintArt);
+      if (token !== renderToken) return;
+      [...engine.inks].forEach((i) => engine.removeInk(i.id));
+      const ink = engine.addInk('boil');
+      if (ink) engine.setInkMask(ink.id, inkMask);
+      engine.setShowMask(true);
+      return;
+    }
+
+    engine.setShowMask(false);
+    if (displayEl && (mode === 'alive' || displayEl instanceof HTMLVideoElement)) {
+      // The ready-made animation: playing for Alive, frozen on its first frame for Still.
+      setDisplay(true, mode === 'alive');
+      return;
+    }
+
+    // No ready-made animation: the engine boils the Alive picture itself.
+    setDisplay(false);
+    if (shown !== aliveArt) {
+      await show(aliveArt);
+      if (token !== renderToken) return;
+      animateAll();
+    } else if (!engine.inks.some((i) => i.painted)) {
+      animateAll();
+    }
+    engine.inks.forEach((i) => engine.updateInk(i.id, { visible: mode === 'alive' }));
+  };
+
+  if (display) {
+    // The engine waits underneath with the paint picture, ready for "Paint it yourself".
+    await show(paintArt);
+  } else {
+    await show(aliveArt);
+    animateAll();
+  }
+  await render();
+  loading?.remove();
 
   const setMode = (m: Mode) => {
     mode = m;
-    $$('[data-demo]').forEach((b) => b.classList.toggle('on', b.dataset.demo === m || (m === 'paint' && b.dataset.demo === 'paint')));
+    $$('[data-demo]').forEach((b) => b.classList.toggle('on', b.dataset.demo === m));
     stage.classList.toggle('painting', m === 'paint');
     const inkTabs = $('[data-demo-inks]');
     if (inkTabs) inkTabs.hidden = m !== 'paint';
@@ -335,33 +397,9 @@ async function startDemo() {
   };
 
   $$('[data-demo]').forEach((btn) =>
-    btn.addEventListener('click', async () => {
-      const m = btn.dataset.demo as Mode;
-      setMode(m);
-      if ((m === 'still' || m === 'alive') && displayEl && (m === 'alive' || displayEl instanceof HTMLVideoElement)) {
-        // The ready-made animation: playing for Alive, frozen on its first frame for Still.
-        hint?.remove();
-        setDisplay(true, m === 'alive');
-      } else if (m === 'still' || m === 'alive') {
-        hint?.remove();
-        setDisplay(false);
-        if (shown !== aliveArt) {
-          // Coming back from painting on the other picture: show the Alive picture again.
-          await show(aliveArt);
-          animateAll();
-        } else if (!engine.inks.some((i) => i.painted)) {
-          animateAll();
-        }
-        engine.inks.forEach((i) => engine.updateInk(i.id, { visible: m === 'alive' }));
-      } else {
-        setDisplay(false);
-        await show(paintArt);
-        [...engine.inks].forEach((i) => engine.removeInk(i.id));
-        engine.setTool('brush');
-        useInk('boil');
-        $$('[data-ink]').forEach((t) => t.classList.toggle('on', t.dataset.ink === 'boil'));
-        showHint('Drag across the drawing to paint');
-      }
+    btn.addEventListener('click', () => {
+      setMode(btn.dataset.demo as Mode);
+      void render();
     }),
   );
 
@@ -415,6 +453,34 @@ async function startDemo() {
       else displayEl.pause();
     }
   }).observe(stage);
+}
+
+/** Load an image (the load event fires even in background tabs, unlike img.decode()). */
+function imageLoaded(img: HTMLImageElement, src: string) {
+  return new Promise<void>((res) => {
+    img.onload = () => res();
+    img.onerror = () => res();
+    img.src = src;
+  });
+}
+
+/** The app draws the ink overlay at 38% opacity, so overlay alpha / 0.38 = how much ink was painted. */
+function inkMaskFrom(img: HTMLImageElement): HTMLCanvasElement | null {
+  if (!img.naturalWidth) return null;
+  const c = document.createElement('canvas');
+  c.width = img.naturalWidth;
+  c.height = img.naturalHeight;
+  const ctx = c.getContext('2d', { willReadFrequently: true })!;
+  ctx.drawImage(img, 0, 0);
+  const px = ctx.getImageData(0, 0, c.width, c.height);
+  const d = px.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const a = Math.min(255, Math.round(d[i + 3] / 0.38));
+    d[i] = d[i + 1] = d[i + 2] = 255;
+    d[i + 3] = a;
+  }
+  ctx.putImageData(px, 0, 0);
+  return c;
 }
 
 /** URL of an image in landing-media (`name`.webp|png), if it's there. */

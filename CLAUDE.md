@@ -80,7 +80,8 @@ Procreate/Krita on painting; every feature must serve "import → ink → export
   `engine.lineColor` move (picked with the eyedropper swatch under the switch; tolerance = Artwork panel slider).
   Detection is color-distance based (`lines.ts`) and runs lazily only when something needs it.
 - Motion amounts are scaled to the **art's** size on the canvas (`artSide`), not the canvas size. Up to 16 groups per artwork (`MAX_INKS` = `MAX_SLOTS`).
-- The ink overlay uses one color for all groups (`engine.overlayColor`, default orange, set in Artwork panel).
+- The ink overlay uses one color for all groups (`engine.overlayColor`, default pink, set in Artwork panel).
+  It samples the masks at the displaced position, so the overlay wiggles along with the art.
 
 ## Animation timing rules
 

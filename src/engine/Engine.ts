@@ -786,6 +786,20 @@ export class Engine {
     this.emit();
   }
 
+  /** Replace an ink's painted area with a picture (its alpha = how much ink). No undo entry. */
+  setInkMask(id: string, source: CanvasImageSource) {
+    const ink = this.inks.find((i) => i.id === id);
+    const mask = ink && this.masks.get(ink.id);
+    if (!ink || !mask) return;
+    const cx = ctx2d(mask);
+    cx.clearRect(0, 0, mask.width, mask.height);
+    cx.imageSmoothingQuality = 'high';
+    cx.drawImage(source, 0, 0, mask.width, mask.height);
+    ink.painted = true;
+    this.uploadMask(ink, null);
+    this.emit();
+  }
+
   // ---------------------------------------------------------------- tools
 
   setTool(tool: Tool) {
